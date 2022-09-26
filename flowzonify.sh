@@ -7,8 +7,9 @@ if [[ ! -f "repo.yml" ]]; then
 	git add repo.yml
 fi
 
-printf "disabled: true\n" > .resinci.yml
-git add .resinci.yml
+if [[ -f ".resinci.yml" ]]; then
+	rm .resinci.yml
+fi
 
 if [ ! -f ".github/workflows/flowzone.yml" ]; then
 	if [ ! -d ".github/workflows" ]; then
