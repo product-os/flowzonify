@@ -1,0 +1,22 @@
+- commits:
+    - subject: Replace balenaCI with flowzone
+      hash: 1d4cad888242dc1f8d3e5091d57dca19769d58f9
+      body: ""
+      footer:
+        Change-type: patch
+        change-type: patch
+      author: Thodoris Greasidis
+      nested: []
+  version: 0.1.1
+  title: ""
+  date: 2022-09-26T09:07:58.308Z
+- version: 0.1.0
+  date: 2022-09-26T09:01:20Z
+  commits:
+    - hash: 0058794ad938156ef7bac0f2dcebb486185b05bf
+      author: Thodoris Greasidis
+      footers:
+        change-type: minor
+        signed-off-by: Thodoris Greasidis <thodoris@balena.io>
+      subject: Initial code commit for nodejs repos
+      body: null
