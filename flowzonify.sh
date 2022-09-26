@@ -38,7 +38,6 @@ fi
 
 if [[ -f "karma.conf.js" ]]; then
 	npm i -D balena-config-karma@4.0.0 @types/chai@^4.3.0 @types/chai-as-promised@^7.1.5 @types/mocha@^9.1.1 chai@^4.3.4 mocha@^10.0.0 ts-node@^10.0.0 karma@^5.0.0
-	cp ~/Resin.io/balena-io-modules/balena-request/karma.conf.js karma.conf.js
 fi
 
 git commit -am 'Replace balenaCI with flowzone
