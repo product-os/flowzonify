@@ -1,4 +1,24 @@
 - commits:
+    - subject: Remove .resinci.yml files if present
+      hash: d89b7d57d269918bf165ca298e7c4b81e50377dc
+      body: ""
+      footer:
+        Change-type: patch
+        change-type: patch
+      author: Thodoris Greasidis
+      nested: []
+    - subject: Remove leftover copy command
+      hash: 4b3171406d65e8742ca55f7c210a3bb92be5868f
+      body: ""
+      footer:
+        Change-type: patch
+        change-type: patch
+      author: Thodoris Greasidis
+      nested: []
+  version: 0.1.2
+  title: ""
+  date: 2022-09-26T09:52:04.959Z
+- commits:
     - subject: Replace balenaCI with flowzone
       hash: 1d4cad888242dc1f8d3e5091d57dca19769d58f9
       body: ""
