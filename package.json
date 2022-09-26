@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "description": "A CLI utility to make switching to flowzone more automated",
   "bin": {
-    "flowzonify": "flowzonify"
+    "flowzonify": "flowzonify.sh"
   },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 0"
