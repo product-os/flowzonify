@@ -1,6 +1,6 @@
 {
   "name": "flowzonify",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "A CLI utility to make switching to flowzone more automated",
   "bin": {
     "flowzonify": "flowzonify.sh"
@@ -23,6 +23,6 @@
   },
   "homepage": "https://github.com/product-os/flowzonify#readme",
   "versionist": {
-    "publishedAt": "2022-09-26T09:52:05.038Z"
+    "publishedAt": "2022-09-26T12:34:39.016Z"
   }
 }

@@ -1,4 +1,16 @@
 - commits:
+    - subject: Delete redundant .resinci.yml
+      hash: fe7fdc43995542e30867b4e441725408ec510813
+      body: ""
+      footer:
+        Change-type: patch
+        change-type: patch
+      author: Thodoris Greasidis
+      nested: []
+  version: 0.1.3
+  title: ""
+  date: 2022-09-26T12:34:38.948Z
+- commits:
     - subject: Remove .resinci.yml files if present
       hash: d89b7d57d269918bf165ca298e7c4b81e50377dc
       body: ""
