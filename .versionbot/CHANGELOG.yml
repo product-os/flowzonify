@@ -1,4 +1,16 @@
 - commits:
+    - subject: Fix repo.yml removal
+      hash: 584421d7b1add03af7733b14a993737f1c6e0767
+      body: ""
+      footer:
+        Change-type: patch
+        change-type: patch
+      author: Page-
+      nested: []
+  version: 0.1.5
+  title: ""
+  date: 2022-09-27T16:20:00.351Z
+- commits:
     - subject: Remove repo.yml instead of creating one
       hash: 9be53b1363b5be45a8edc4fe31bc22c1d9f6c398
       body: |
