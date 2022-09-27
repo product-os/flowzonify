@@ -1,4 +1,18 @@
 - commits:
+    - subject: Remove repo.yml instead of creating one
+      hash: 9be53b1363b5be45a8edc4fe31bc22c1d9f6c398
+      body: |
+        Flowzone no longer looks for a repo.yml file to enable versioning and
+        such it's no longer required and can be removed
+      footer:
+        Change-type: patch
+        change-type: patch
+      author: Page-
+      nested: []
+  version: 0.1.4
+  title: ""
+  date: 2022-09-27T11:47:24.525Z
+- commits:
     - subject: Delete redundant .resinci.yml
       hash: fe7fdc43995542e30867b4e441725408ec510813
       body: ""
