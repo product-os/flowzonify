@@ -2,8 +2,8 @@
 
 git checkout -b "flowzonify";
 
-if [[ ! -f "repo.yml" ]]; then
-	printf "type: 'node'\n" > repo.yml
+if [[ -f "repo.yml" ]]; then
+	rm repo.yml
 	git add repo.yml
 fi
 
