@@ -28,11 +28,7 @@ jobs:
   flowzone:
     name: Flowzone
     uses: product-os/flowzone/.github/workflows/flowzone.yml@master
-    secrets:
-      FLOWZONE_TOKEN: ${{ secrets.FLOWZONE_TOKEN }}
-      GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
-      GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
-      NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+    secrets: inherit
 ' > .github/workflows/flowzone.yml
 	git add .github/workflows/flowzone.yml
 fi
