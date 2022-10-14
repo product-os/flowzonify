@@ -1,4 +1,16 @@
 - commits:
+    - subject: Use inherited secrets
+      hash: ecd009782b50c4d30d7b4a66df4d9241946a4895
+      body: ""
+      footer:
+        Change-type: patch
+        change-type: patch
+      author: Page-
+      nested: []
+  version: 0.1.6
+  title: ""
+  date: 2022-10-14T16:33:13.393Z
+- commits:
     - subject: Fix repo.yml removal
       hash: 584421d7b1add03af7733b14a993737f1c6e0767
       body: ""
