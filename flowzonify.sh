@@ -2,11 +2,6 @@
 
 git checkout -b "flowzonify";
 
-if [[ -f "repo.yml" ]]; then
-	rm repo.yml
-	git rm repo.yml
-fi
-
 if [[ -f ".resinci.yml" ]]; then
 	rm .resinci.yml
 fi
