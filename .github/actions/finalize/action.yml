@@ -1,0 +1,31 @@
+# https://docs.github.com/en/actions/creating-actions/creating-a-composite-action
+name: "Finalize custom"
+description: "Custom finalize step to run after a merge or tag"
+# this inputs are always provided by flowzone, so they must always be defined on the composite action
+inputs:
+  json:
+    description: "JSON stringified object containing all the inputs from the calling workflow"
+    required: true
+  secrets:
+    description: "JSON stringified object containing all the secrets from the calling workflow"
+    required: true
+runs:
+  using: "composite"
+  steps:
+    - name: Set up Node
+      uses: actions/setup-node@v3
+      with:
+        node-version: "18.x"
+    - name: Checkout repository
+      uses: actions/checkout@v3
+    - name: Set up SSH keys
+      run: |
+        mkdir -p ~/.ssh
+        echo "${{ secrets.ID_RSA }}" > ~/.ssh/id_rsa
+        echo "${{ secrets.ID_RSA_PUB }}" > ~/.ssh/id_rsa.pub
+        chmod 600 ~/.ssh/id_rsa
+        chmod 644 ~/.ssh/id_rsa.pub
+    - name: Install dependencies
+      run: npm ci
+    - name: Execute flowzonify
+      run: npx ts-node --esm src/index.ts
