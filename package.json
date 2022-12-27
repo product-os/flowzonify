@@ -1,6 +1,6 @@
 {
   "name": "flowzonify",
-  "version": "0.1.7",
+  "version": "1.0.0",
   "description": "A CLI utility to make switching to flowzone more automated",
   "type": "module",
   "bin": {
@@ -31,7 +31,7 @@
   },
   "homepage": "https://github.com/product-os/flowzonify#readme",
   "versionist": {
-    "publishedAt": "2022-12-07T09:17:32.275Z"
+    "publishedAt": "2022-12-27T03:14:37.588Z"
   },
   "dependencies": {
     "@humanwhocodes/env": "^2.2.2",
