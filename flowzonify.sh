@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 git checkout -b "flowzonify";
 
@@ -15,14 +15,25 @@ if [ ! -f ".github/workflows/flowzone.yml" ]; then
 on:
   pull_request:
     types: [opened, synchronize, closed]
-    branches:
-      - "main"
-      - "master"
+    branches: [main, master]
+  # allow external contributions to use secrets within trusted code
+  pull_request_target:
+    types: [opened, synchronize, closed]
+    branches: [main, master]
 
 jobs:
   flowzone:
     name: Flowzone
     uses: product-os/flowzone/.github/workflows/flowzone.yml@master
+    # prevent duplicate workflow executions for pull_request and pull_request_target
+    if: |
+      (
+        github.event.pull_request.head.repo.full_name == github.repository &&
+        github.event_name == 'pull_request'
+      ) || (
+        github.event.pull_request.head.repo.full_name != github.repository &&
+        github.event_name == 'pull_request_target'
+      )
     secrets: inherit
 ' > .github/workflows/flowzone.yml
 	git add .github/workflows/flowzone.yml
