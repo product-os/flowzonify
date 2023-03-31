@@ -1,4 +1,16 @@
 - commits:
+    - subject: Add support for external contributions
+      hash: 70142276098c488baed7572ee69405f8f4810e38
+      body: ""
+      footer:
+        Change-type: patch
+        change-type: patch
+      author: Kyle Harding
+      nested: []
+  version: 0.1.8
+  title: ""
+  date: 2023-03-31T17:05:27.709Z
+- commits:
     - subject: Stop removing the repo.yml
       hash: 71ff950e919e7496cdbe23c8ce2497d8bf92981f
       body: ""
