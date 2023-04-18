@@ -1,4 +1,19 @@
 - commits:
+    - subject: Use cat to pipe raw text to flowzone workflow
+      hash: 5192b6580e1eef288ecce4b0d4b8ec77a0050bcc
+      body: |
+        This removes the need to escape quotes.
+      footer:
+        Change-type: patch
+        change-type: patch
+        Signed-off-by: Kyle Harding <kyle@balena.io>
+        signed-off-by: Kyle Harding <kyle@balena.io>
+      author: Kyle Harding
+      nested: []
+  version: 0.1.9
+  title: ""
+  date: 2023-04-18T13:26:10.739Z
+- commits:
     - subject: Add support for external contributions
       hash: 70142276098c488baed7572ee69405f8f4810e38
       body: ""
