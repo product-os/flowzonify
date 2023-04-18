@@ -1,16 +1,15 @@
 #!/usr/bin/env bash
 
-git checkout -b "flowzonify";
+git checkout -b "flowzonify"
 
 if [[ -f ".resinci.yml" ]]; then
 	rm .resinci.yml
 fi
 
 if [ ! -f ".github/workflows/flowzone.yml" ]; then
-	if [ ! -d ".github/workflows" ]; then
-		mkdir -p .github/workflows
-	fi
-	printf 'name: Flowzone
+	mkdir -p .github/workflows
+	cat << EOF > .github/workflows/flowzone.yml
+name: Flowzone
 
 on:
   pull_request:
@@ -35,7 +34,8 @@ jobs:
         github.event_name == 'pull_request_target'
       )
     secrets: inherit
-' > .github/workflows/flowzone.yml
+EOF
+
 	git add .github/workflows/flowzone.yml
 fi
 
@@ -43,6 +43,4 @@ if [[ -f "karma.conf.js" ]]; then
 	npm i -D balena-config-karma@4.0.0 @types/chai@^4.3.0 @types/chai-as-promised@^7.1.5 @types/mocha@^9.1.1 chai@^4.3.4 mocha@^10.0.0 ts-node@^10.0.0 karma@^5.0.0
 fi
 
-git commit -am 'Replace balenaCI with flowzone
-
-Change-type: patch';
+git commit -am 'Replace balenaCI with flowzone' -m 'Change-type: patch'
