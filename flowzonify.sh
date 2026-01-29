@@ -2,6 +2,8 @@
 
 git checkout -b "flowzonify"
 
+COMMIT_MESSAGE="Update flowzone config"
+
 if [[ -f ".resinci.yml" ]]; then
 	rm .resinci.yml
 fi
@@ -20,6 +22,11 @@ on:
     types: [opened, synchronize, closed]
     branches: [main, master]
 
+permissions:
+  id-token: write  # https://docs.npmjs.com/trusted-publishers
+  contents: read
+  packages: read  # should we decide to publish to ghcr.io
+
 jobs:
   flowzone:
     name: Flowzone
@@ -37,10 +44,24 @@ jobs:
 EOF
 
 	git add .github/workflows/flowzone.yml
+
+	if [[ -f "karma.conf.js" ]]; then
+		npm i -D balena-config-karma@4.0.0 @types/chai@^4.3.0 @types/chai-as-promised@^7.1.5 @types/mocha@^9.1.1 chai@^4.3.4 mocha@^10.0.0 ts-node@^10.0.0 karma@^5.0.0
+	fi
+
+	COMMIT_MESSAGE="Replace balenaCI with flowzone"
+
+else
+	# if it's an npm module, add the npm OIDC auth permissions section
+	if [[ -f "package.json" ]] && ! grep -Pz "(?m)permissions:\s+id-token: write" ".github/workflows/flowzone.yml" > /dev/null; then
+		sed -i '/^jobs:/i \
+permissions:\
+  id-token: write  # https://docs.npmjs.com/trusted-publishers\
+  contents: read\
+  packages: read  # should we decide to publish to ghcr.io\
+
+' ".github/workflows/flowzone.yml"
+	fi
 fi
 
-if [[ -f "karma.conf.js" ]]; then
-	npm i -D balena-config-karma@4.0.0 @types/chai@^4.3.0 @types/chai-as-promised@^7.1.5 @types/mocha@^9.1.1 chai@^4.3.4 mocha@^10.0.0 ts-node@^10.0.0 karma@^5.0.0
-fi
-
-git commit -am 'Replace balenaCI with flowzone' -m 'Change-type: patch'
+git commit -am "$COMMIT_MESSAGE" -m 'Change-type: patch'
