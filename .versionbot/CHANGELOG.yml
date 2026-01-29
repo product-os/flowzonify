@@ -1,4 +1,18 @@
 - commits:
+    - subject: Add the npm OIDC auth permissions section
+      hash: 89f6402def23c96e1851dbe47d4086f4871985b8
+      body: ""
+      footer:
+        Change-type: minor
+        change-type: minor
+        See: https://balena.fibery.io/Work/Project/Create-OIDC-trust-between-npm-and-GitHub-Actions-2091
+        see: https://balena.fibery.io/Work/Project/Create-OIDC-trust-between-npm-and-GitHub-Actions-2091
+      author: Thodoris Greasidis
+      nested: []
+  version: 0.2.0
+  title: ""
+  date: 2026-01-29T17:25:27.855Z
+- commits:
     - subject: Use cat to pipe raw text to flowzone workflow
       hash: 5192b6580e1eef288ecce4b0d4b8ec77a0050bcc
       body: |
