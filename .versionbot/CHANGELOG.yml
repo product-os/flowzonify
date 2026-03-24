@@ -1,4 +1,17 @@
 - commits:
+    - subject: Pin product-os/flowzone action to a53cf4b
+      hash: 97145754267c3698386cf6256eec9778221f8b0c
+      body: |
+        Update product-os/flowzone
+      footer:
+        Change-type: patch
+        change-type: patch
+      author: balena-renovate[bot]
+      nested: []
+  version: 0.2.1
+  title: ""
+  date: 2026-03-24T19:02:33.989Z
+- commits:
     - subject: Add the npm OIDC auth permissions section
       hash: 89f6402def23c96e1851dbe47d4086f4871985b8
       body: ""
