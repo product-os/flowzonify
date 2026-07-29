@@ -1,0 +1,16 @@
+name: Flowzone
+
+on:
+  pull_request:
+    types: [opened, synchronize, closed]
+    branches: [main, master]
+  # Fork contributions are rebuilt and published from the push to the default
+  # branch after merge.
+  push:
+    branches: [main, master]
+
+jobs:
+  ci:
+    name: Flowzone
+    uses: product-os/flowzone/.github/workflows/flowzone.yml@master
+    secrets: inherit

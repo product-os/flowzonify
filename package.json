@@ -1,12 +1,21 @@
 {
   "name": "flowzonify",
   "version": "0.2.17",
-  "description": "A CLI utility to make switching to flowzone more automated",
+  "description": "A CLI utility to migrate flowzone caller workflows",
+  "type": "module",
   "bin": {
-    "flowzonify": "flowzonify.sh"
+    "flowzonify": "bin/flowzonify.js"
+  },
+  "files": [
+    "bin",
+    "lib"
+  ],
+  "engines": {
+    "node": ">=20"
   },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 0"
+    "test": "node --test",
+    "lint": "if command -v actionlint >/dev/null 2>&1; then actionlint -color; else echo 'actionlint not installed'; fi"
   },
   "repository": {
     "type": "git",
@@ -22,6 +31,9 @@
     "url": "https://github.com/product-os/flowzonify/issues"
   },
   "homepage": "https://github.com/product-os/flowzonify#readme",
+  "dependencies": {
+    "yaml": "^2.8.1"
+  },
   "versionist": {
     "publishedAt": "2026-03-26T17:24:24.295Z"
   }
