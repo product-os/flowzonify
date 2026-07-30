@@ -4,18 +4,24 @@
   "description": "A CLI utility to migrate flowzone caller workflows",
   "type": "module",
   "bin": {
-    "flowzonify": "bin/flowzonify.js"
+    "flowzonify": "dist/bin/flowzonify.js"
   },
   "files": [
-    "bin",
-    "lib"
+    "dist"
   ],
   "engines": {
-    "node": ">=20"
+    "node": ">=22.18.0"
   },
   "scripts": {
+    "clean": "node -e \"fs.rmSync('dist', { recursive: true, force: true })\"",
+    "build": "npm run clean && tsc --project tsconfig.build.json",
     "test": "node --test",
-    "lint": "if command -v actionlint >/dev/null 2>&1; then actionlint -color; else echo 'actionlint not installed'; fi"
+    "posttest": "npm run lint",
+    "lint": "balena-lint lib bin scripts test && tsc --noEmit && npm run lint:workflows",
+    "lint-fix": "balena-lint --fix lib bin scripts test",
+    "lint:workflows": "if command -v actionlint >/dev/null 2>&1; then actionlint -color; else echo 'actionlint not installed'; fi",
+    "prepack": "npm run build",
+    "prepare": "node -e \"try { (await import('husky')).default() } catch (e) { if (e.code !== 'ERR_MODULE_NOT_FOUND') throw e }\" --input-type module && npm run build"
   },
   "repository": {
     "type": "git",
@@ -33,6 +39,13 @@
   "homepage": "https://github.com/product-os/flowzonify#readme",
   "dependencies": {
     "yaml": "^2.8.1"
+  },
+  "devDependencies": {
+    "@balena/lint": "^9.4.6",
+    "@types/node": "^24.13.3",
+    "husky": "^9.1.7",
+    "lint-staged": "^17.2.0",
+    "typescript": "^6.0.2"
   },
   "versionist": {
     "publishedAt": "2026-03-26T17:24:24.295Z"

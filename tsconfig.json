@@ -1,0 +1,16 @@
+{
+	"compilerOptions": {
+		"module": "nodenext",
+		"target": "es2023",
+		"strict": true,
+		"noUnusedLocals": true,
+		"noUnusedParameters": true,
+		"erasableSyntaxOnly": true,
+		"rewriteRelativeImportExtensions": true,
+		"verbatimModuleSyntax": true,
+		"types": ["node"],
+		"skipLibCheck": true,
+		"noEmit": true
+	},
+	"include": ["lib/**/*.ts", "bin/**/*.ts", "scripts/**/*.ts", "test/**/*.ts"]
+}

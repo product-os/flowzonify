@@ -71,10 +71,12 @@ partially migrated workflow converges rather than double-applying.
 ## Writing a migration
 
 A migration is a plain object in `lib/migrations/`, added to the ordered registry in
-`lib/migrations/index.js`. Nothing else in the tool changes — unless it needs a repository fact
-nobody has needed yet, which is one more probe in `repoContext` (`lib/run.js`).
+`lib/migrations/index.ts`. Nothing else in the tool changes — unless it needs a repository fact
+nobody has needed yet, which is one more probe in `repoContext` (`lib/run.ts`).
 
-```js
+```ts
+import type { Migration } from '../migrate.ts';
+
 export default {
   id: 'remove-something',
   description: 'One line, shown by --list and in pull request bodies.',
@@ -89,7 +91,7 @@ export default {
   verify(doc) {
     return problem ? 'what went wrong' : undefined;
   },
-};
+} satisfies Migration;
 ```
 
 `apply` returns one of four verdicts:
@@ -105,7 +107,7 @@ Three rules make the whole thing work:
 
 - **Emit edits, never a re-serialised document.** Round-tripping a `yaml` Document reformats lines
   the migration never touched — flow sequences gain padding, four-space blocks get reindented. Use
-  `pairRange` from `lib/source.js` to get a pair's source range, comments included, and let
+  `pairRange` from `lib/source.ts` to get a pair's source range, comments included, and let
   `applyEdits` splice it.
 - **Find caller jobs with `callerJobs`, not by name.** Job names are caller-chosen, and flowzone's
   own workflow file mentions its full path in step scripts. Only the `uses:` key tells them apart.
@@ -123,16 +125,17 @@ never overlap.
 npm test
 ```
 
-No test dependencies — `node:test` and `node:assert` only. Alongside the per-migration tests,
-`test/corpus/` pairs whole caller workflows with their expected output. Each fixture is named for
+No test dependencies — `node:test` and `node:assert` only, running the TypeScript sources directly
+through Node's own type stripping (node ≥ 22.18). Alongside the per-migration tests,
+`test/fixtures/` pairs whole caller workflows with their expected output. Each fixture is named for
 the structural variant it pins down, distilled from the shapes callers actually have in the wild:
 flow *and* block sequence branch lists, four-space `permissions:` blocks, both spellings of the
 routing condition, a renamed caller job, a `with:` whose only input is being removed, and a
 workflow that is not valid YAML at all. Those are the variants a canonical template never exercises,
 and they are where a naive transform breaks.
 
-Add a fixture by dropping the input in `test/corpus/input/` and its migrated form in
-`test/corpus/expected/`; a fixture with no expected file is asserted to be one the tool refuses.
+Add a fixture by dropping the input in `test/fixtures/input/` and its migrated form in
+`test/fixtures/expected/`; a fixture with no expected file is asserted to be one the tool refuses.
 
 To dry-run the whole fleet without touching any repository:
 
@@ -158,7 +161,7 @@ gh api graphql --paginate -F org=product-os -f query='
                customActions: [(.actions.entries // [])[] | select(.type == "tree") | .name],
                isNpmPackage: (try ((.packageJson.text // "null") | fromjson | . != null and (.private != true)) catch false)
              }' \
-  | node scripts/sweep.js
+  | node scripts/sweep.ts
 ```
 
 The query gathers repository context as well as the workflow, because a migration
