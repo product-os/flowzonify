@@ -97,13 +97,6 @@ function runInit(values: CliValues): number {
 	if (result.wroteRepoType) {
 		console.log(`created repo.yml with type: ${result.repoType}`);
 	}
-	if (result.karmaPackages.length > 0) {
-		console.log(
-			result.installedKarmaPackages
-				? `installed karma test dependencies: ${result.karmaPackages.join(' ')}`
-				: `karma project — install these dev dependencies: ${result.karmaPackages.join(' ')}`,
-		);
-	}
 	report(result.migration);
 
 	return exit;

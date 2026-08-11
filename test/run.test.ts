@@ -129,7 +129,7 @@ test('init does not overwrite an existing workflow with the template', () => {
 		'    secrets: inherit\n    with:\n      docker_images: example-org/example-app\n',
 	);
 	const dir = repo({ [WORKFLOW_PATH]: customised });
-	const result = initRepo(dir, { install: false, type: 'generic' });
+	const result = initRepo(dir, { type: 'generic' });
 
 	assert.equal(result.created, false);
 	assert.ok(
@@ -142,7 +142,7 @@ test('init does not overwrite an existing workflow with the template', () => {
 
 test('init removes a leftover balenaCI config', () => {
 	const dir = repo({ '.resinci.yml': 'npm:\n  publish: false\n' });
-	const result = initRepo(dir, { install: false, type: 'generic' });
+	const result = initRepo(dir, { type: 'generic' });
 
 	assert.equal(result.removedResinci, true);
 	assert.equal(existsSync(join(dir, '.resinci.yml')), false);
@@ -150,7 +150,7 @@ test('init removes a leftover balenaCI config', () => {
 
 test('init leaves the created workflow needing no migration for an npm package', () => {
 	const dir = repo({ 'package.json': '{"name":"x"}\n' });
-	const result = initRepo(dir, { install: false });
+	const result = initRepo(dir);
 
 	const created = readFileSync(join(dir, WORKFLOW_PATH), 'utf8');
 	assert.match(
@@ -166,7 +166,7 @@ test('init leaves the created workflow needing no migration for an npm package',
 
 test('init leaves permissions out of a workflow for a repository that is not an npm package', () => {
 	const dir = repo();
-	initRepo(dir, { install: false, type: 'generic' });
+	initRepo(dir, { type: 'generic' });
 	assert.ok(
 		!readFileSync(join(dir, WORKFLOW_PATH), 'utf8').includes('permissions:'),
 	);
@@ -177,21 +177,12 @@ test('init brings an existing workflow up to date through the migrations', () =>
 		'package.json': '{"name":"x"}\n',
 		[WORKFLOW_PATH]: LEGACY_CALLER,
 	});
-	initRepo(dir, { install: false });
+	initRepo(dir);
 
 	const written = readFileSync(join(dir, WORKFLOW_PATH), 'utf8');
 	assert.match(written, /^permissions:$/m);
 	assert.ok(!written.includes('pull_request_target'));
 	assert.ok(written.includes('  push:'));
-});
-
-test('init reports the karma test dependencies a karma project needs', () => {
-	const dir = repo({ 'karma.conf.js': 'module.exports = () => {};\n' });
-	const result = initRepo(dir, { install: false, type: 'generic' });
-
-	assert.ok(result.karmaPackages.includes('balena-config-karma@4.0.0'));
-	assert.ok(result.karmaPackages.some((pkg) => pkg.startsWith('karma@')));
-	assert.equal(result.installedKarmaPackages, false);
 });
 
 test('a repository with no package.json needs a declared repo type', () => {
@@ -211,7 +202,7 @@ test('a repository that already declares its type does not need asking again', (
 
 test('init writes the repo type it was given', () => {
 	const dir = repo();
-	const result = initRepo(dir, { install: false, type: 'docker' });
+	const result = initRepo(dir, { type: 'docker' });
 
 	assert.equal(result.wroteRepoType, true);
 	assert.equal(readFileSync(join(dir, 'repo.yml'), 'utf8'), 'type: docker\n');
@@ -220,7 +211,7 @@ test('init writes the repo type it was given', () => {
 test('init leaves an existing repo.yml alone', () => {
 	const existing = 'type: yocto-layer\nreviewers: 1\n';
 	const dir = repo({ 'repo.yml': existing });
-	const result = initRepo(dir, { install: false, type: 'docker' });
+	const result = initRepo(dir, { type: 'docker' });
 
 	assert.equal(result.wroteRepoType, false);
 	assert.equal(readFileSync(join(dir, 'repo.yml'), 'utf8'), existing);
@@ -228,7 +219,7 @@ test('init leaves an existing repo.yml alone', () => {
 
 test('an explicit type overrides inference, even for an npm package', () => {
 	const dir = repo({ 'package.json': '{"name":"x"}\n' });
-	const result = initRepo(dir, { install: false, type: 'python-poetry' });
+	const result = initRepo(dir, { type: 'python-poetry' });
 
 	assert.equal(
 		result.wroteRepoType,
@@ -243,7 +234,7 @@ test('an explicit type overrides inference, even for an npm package', () => {
 
 test('init writes no repo.yml for an npm package', () => {
 	const dir = repo({ 'package.json': '{"name":"x"}\n' });
-	const result = initRepo(dir, { install: false });
+	const result = initRepo(dir);
 
 	assert.equal(result.wroteRepoType, false);
 	assert.equal(existsSync(join(dir, 'repo.yml')), false);
@@ -251,7 +242,7 @@ test('init writes no repo.yml for an npm package', () => {
 
 test('init refuses a repository whose type it cannot tell, and touches nothing', () => {
 	const dir = repo();
-	assert.throws(() => initRepo(dir, { install: false }), /--type/);
+	assert.throws(() => initRepo(dir), /--type/);
 
 	assert.equal(existsSync(join(dir, 'repo.yml')), false);
 	assert.equal(
@@ -262,10 +253,7 @@ test('init refuses a repository whose type it cannot tell, and touches nothing',
 });
 
 test('init rejects a repo type versionist does not ship', () => {
-	assert.throws(
-		() => initRepo(repo(), { install: false, type: 'nope' }),
-		/nope/,
-	);
+	assert.throws(() => initRepo(repo(), { type: 'nope' }), /nope/);
 });
 
 test('every offered repo type is one balena-versionist recognises', () => {
@@ -280,15 +268,9 @@ test('every offered repo type is one balena-versionist recognises', () => {
 	assert.ok(REPO_TYPES.includes('yocto-based-OS-image'));
 });
 
-test('init reports no karma dependencies for a project that does not use karma', () => {
-	const dir = repo();
-	const result = initRepo(dir, { install: false, type: 'generic' });
-	assert.deepEqual(result.karmaPackages, []);
-});
-
 test('the workflow init creates still needs no migration', () => {
 	const dir = repo({ 'package.json': '{"name":"x"}\n' });
-	initRepo(dir, { install: false });
+	initRepo(dir);
 	assert.equal(migrateFile(join(dir, WORKFLOW_PATH)).changed, false);
 });
 

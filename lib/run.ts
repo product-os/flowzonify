@@ -1,4 +1,3 @@
-import { spawnSync } from 'node:child_process';
 import {
 	readFileSync,
 	writeFileSync,
@@ -248,27 +247,12 @@ export function needsRepoType(cwd: string): boolean {
 	);
 }
 
-/** Dev dependencies a karma project needs to test under flowzone. */
-const KARMA_PACKAGES = [
-	'balena-config-karma@4.0.0',
-	'@types/chai@^4.3.0',
-	'@types/chai-as-promised@^7.1.5',
-	'@types/mocha@^9.1.1',
-	'chai@^4.3.4',
-	'mocha@^10.0.0',
-	'ts-node@^10.0.0',
-	'karma@^5.0.0',
-];
-
 /**
  * Bootstrap a repository that has never used flowzone: the job the old
  * flowzonify.sh did, minus the branch-and-commit, which belongs to whoever runs
  * this rather than to the tool.
  */
-export function initRepo(
-	cwd: string,
-	{ install = true, type }: { install?: boolean; type?: string } = {},
-) {
+export function initRepo(cwd: string, { type }: { type?: string } = {}) {
 	const workflow = join(cwd, WORKFLOW_PATH);
 
 	if (type && !REPO_TYPES.includes(type)) {
@@ -307,14 +291,6 @@ export function initRepo(
 		});
 	}
 
-	const karmaPackages = existsSync(join(cwd, 'karma.conf.js'))
-		? KARMA_PACKAGES
-		: [];
-	const installedKarmaPackages =
-		karmaPackages.length > 0 && install
-			? installDevDependencies(cwd, karmaPackages)
-			: false;
-
 	// Whatever the workflow still needs — the npm publishing permissions, say — is
 	// a migration, so let the migrations decide rather than duplicating them here.
 	const migration = migrateFile(workflow, { cwd, lint: false });
@@ -324,17 +300,7 @@ export function initRepo(
 		removedResinci: resinciExists,
 		wroteRepoType,
 		repoType: wroteRepoType ? type : undefined,
-		karmaPackages,
-		installedKarmaPackages,
 		workflow,
 		migration,
 	};
-}
-
-function installDevDependencies(cwd: string, packages: string[]): boolean {
-	const result = spawnSync('npm', ['install', '-D', ...packages], {
-		cwd,
-		stdio: 'inherit',
-	});
-	return result.status === 0;
 }
