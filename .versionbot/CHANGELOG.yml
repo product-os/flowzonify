@@ -1,4 +1,99 @@
 - commits:
+    - subject: Convert to TypeScript
+      hash: fc145d5f951db163650800560f5636de74250f50
+      body: |
+        The layout follows the shape of the abandoned #9 with the parts that
+        aged out replaced: lib/ stays the source directory as in current balena
+        repos rather than moving to src/, the module settings are nodenext
+        instead of the pre-ESM node resolution, and husky, lint-staged, ts-node,
+        and rimraf are not carried over. @balena/lint 9 does the linting and
+        formatting; typescript stays on ^6 to match the compiler the lint stack
+        bundles, since typescript-eslint does not support 7 yet.
+
+        Source imports name their .ts files and tsc rewrites them to .js on
+        emit, so the same files run both ways: node executes lib/, scripts/,
+        and the tests directly through its own type stripping -- no test
+        dependencies, as before -- while tsc emits dist/ for the published
+        package. The bin entry moves to dist/bin/flowzonify.js and a prepare
+        script builds on install, which is what keeps npx product-os/flowzonify
+        working from a git checkout. erasableSyntaxOnly keeps the sources
+        inside the syntax node can strip.
+
+        engines moves to >=22.18.0, the first line with type stripping on by
+        default; node 20 is EOL. The compiled dist/ itself would still run on
+        older nodes, but tests and the sweep would not.
+
+        The one behavioural casualty: migrate-custom-runs-on carried an
+        `affected` array that was pushed to and never read -- noUnusedLocals
+        refuses it, and it is gone.
+      footer:
+        Change-type: minor
+        change-type: minor
+        Signed-off-by: Kyle Harding <kyle@balena.io>
+        signed-off-by: Kyle Harding <kyle@balena.io>
+      author: Kyle Harding
+      nested: []
+    - subject: Replace the sed script with a YAML-aware migration framework
+      hash: 00474e905ca638f9705c791a01b7d1628d985b7f
+      body: >
+        Flowzone's caller configuration changes over time, and every change has
+        to
+
+        reach ~100 repositories. The old shell script could only sed a fixed
+        template
+
+        and commit: no structural, comment-preserving edit, and nowhere to put a
+
+        second migration.
+
+
+        Migrations are now an ordered registry of small units. Each decides for
+        itself
+
+        whether it applies, so re-running converges on a partially migrated
+        workflow,
+
+        and each emits source ranges rather than a re-serialised document, so
+        the diff
+
+        touches only the lines it means to. Nothing is written unless the result
+
+        reparses, keeps the caller jobs intact, drops no trigger a migration
+        declared
+
+        it would not, is idempotent, and introduces no actionlint diagnostic the
+        file
+
+        did not already have.
+
+
+        Ships the trust boundary migration (product-os/flowzone#1862), the npm
+        OIDC
+
+        permissions the old script injected, and custom_runs_on. `init` keeps
+        the
+
+        bootstrap behaviour but no longer branches or commits.
+
+
+        Dry-run over every live flowzone caller in the balena orgs, 343 of them:
+        340
+
+        migrate cleanly, one is refused as invalid YAML, and two are flowzone's
+        own
+
+        reusable workflow rather than a caller.
+      footer:
+        Change-type: minor
+        change-type: minor
+        Signed-off-by: Kyle Harding <kyle@balena.io>
+        signed-off-by: Kyle Harding <kyle@balena.io>
+      author: Kyle Harding
+      nested: []
+  version: 0.3.0
+  title: ""
+  date: 2026-08-14T13:11:43.975Z
+- commits:
     - subject: Revert flowzone pinning to master
       hash: bc901ee9d46f02c548850d80820947170f024ab4
       body: ""
