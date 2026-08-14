@@ -10,9 +10,8 @@ on:
     branches: [main, master]
 
 permissions:
-  id-token: write  # https://docs.npmjs.com/trusted-publishers
   contents: read
-  packages: read  # should we decide to publish to ghcr.io
+  packages: write
 
 jobs:
   flowzone:

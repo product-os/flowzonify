@@ -1,19 +1,14 @@
 name: Flowzone
-
 on:
   pull_request:
     types: [opened, synchronize, closed]
-    branches: [main, master]
+    branches:
+      - "master"
   # Fork contributions are rebuilt and published from the push to the default
   # branch after merge.
   push:
-    branches: [main, master]
-
-permissions:
-  id-token: write  # https://docs.npmjs.com/trusted-publishers
-  contents: read
-  packages: read  # should we decide to publish to ghcr.io
-
+    branches:
+      - "master"
 jobs:
   flowzone:
     name: Flowzone

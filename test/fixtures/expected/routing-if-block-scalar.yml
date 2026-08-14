@@ -1,5 +1,4 @@
 name: Flowzone
-
 on:
   pull_request:
     types: [opened, synchronize, closed]
@@ -8,14 +7,12 @@ on:
   # branch after merge.
   push:
     branches: [main, master]
-
-permissions:
-  id-token: write  # https://docs.npmjs.com/trusted-publishers
-  contents: read
-  packages: read  # should we decide to publish to ghcr.io
-
 jobs:
   flowzone:
     name: Flowzone
     uses: product-os/flowzone/.github/workflows/flowzone.yml@master
     secrets: inherit
+    with:
+      balena_slugs: |
+        example_org/example-amd64,
+        example_org/example-aarch64
