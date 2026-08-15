@@ -1,4 +1,17 @@
 - commits:
+    - subject: Pin dependencies
+      hash: ed73355c2db39c6fe2f87bc7aa83b9210c6eddd2
+      body: |
+        Update @types/node
+      footer:
+        Change-type: patch
+        change-type: patch
+      author: balena-renovate[bot]
+      nested: []
+  version: 0.3.1
+  title: ""
+  date: 2026-08-15T00:44:14.233Z
+- commits:
     - subject: Convert to TypeScript
       hash: fc145d5f951db163650800560f5636de74250f50
       body: |
