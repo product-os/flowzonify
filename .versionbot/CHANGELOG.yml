@@ -1,4 +1,17 @@
 - commits:
+    - subject: Lock file maintenance
+      hash: 8e74ecdc7a55f42be0039444f47e6e26a403d3f5
+      body: |
+        Update 
+      footer:
+        Change-type: patch
+        change-type: patch
+      author: balena-renovate[bot]
+      nested: []
+  version: 0.3.3
+  title: ""
+  date: 2026-08-17T00:45:43.930Z
+- commits:
     - subject: Update dependency lint-staged to v17.3.0
       hash: 6bc0fba370a4483b0ebe017e89475d92e3905efd
       body: |
