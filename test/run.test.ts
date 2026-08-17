@@ -362,3 +362,51 @@ test('reports that a caller turns versioning off', () => {
 	assert.equal(result.status, 'ok');
 	assert.equal(result.versioningDisabled, true);
 });
+
+test('reports the repository type a caller declares', () => {
+	// The action picks the versionist footer from this, so it comes from the parsed
+	// repo.yml rather than a text match.
+	const dir = repo({
+		[WORKFLOW_PATH]: LEGACY_CALLER,
+		'repo.yml': "---\ntype: 'yocto-based OS image'\nreviewers: 1\n",
+	});
+	assert.equal(
+		migrateFile(join(dir, WORKFLOW_PATH)).repoType,
+		'yocto-based-os-image',
+	);
+});
+
+test('reports the repository type however it is spelled', () => {
+	// repo.yml files in the wild use spaces; REPO_TYPES carries balena-versionist's
+	// hyphenated directory names. Both have to reach the same value.
+	const dir = repo({
+		[WORKFLOW_PATH]: LEGACY_CALLER,
+		'repo.yml': 'type: yocto-based-OS-image\n',
+	});
+	assert.equal(
+		migrateFile(join(dir, WORKFLOW_PATH)).repoType,
+		'yocto-based-os-image',
+	);
+});
+
+test('reports no repository type when there is no repo.yml', () => {
+	const dir = repo({ [WORKFLOW_PATH]: LEGACY_CALLER });
+	assert.equal(migrateFile(join(dir, WORKFLOW_PATH)).repoType, undefined);
+});
+
+test('reports no repository type when repo.yml declares none', () => {
+	const dir = repo({
+		[WORKFLOW_PATH]: LEGACY_CALLER,
+		'repo.yml': 'reviewers: 1\nupstream:\n  - repo: x\n    type: docker\n',
+	});
+	// The nested `type:` belongs to the upstream entry, not to this repository.
+	assert.equal(migrateFile(join(dir, WORKFLOW_PATH)).repoType, undefined);
+});
+
+test('reports no repository type when repo.yml does not parse', () => {
+	const dir = repo({
+		[WORKFLOW_PATH]: LEGACY_CALLER,
+		'repo.yml': 'type: node\n  stray: value\n',
+	});
+	assert.equal(migrateFile(join(dir, WORKFLOW_PATH)).repoType, undefined);
+});

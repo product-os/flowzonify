@@ -169,3 +169,42 @@ test('the CLI cannot drift from the action that reports on it', () => {
 		'the migrate step fetches the CLI from the registry, which can be a different release',
 	);
 });
+
+test('the github-script steps are syntactically valid JavaScript', () => {
+	// Inline scripts are not linted or type-checked by anything, and a syntax error in one
+	// would surface only when a caller runs the action. `node --check` parses without
+	// running anything; wrapping the body in an async arrow, as github-script does, keeps
+	// a top-level `return` or `await` legal.
+	const dir = repo({}, 'flowzonify-script-');
+
+	const scripts = action.runs.steps.filter(
+		(step) =>
+			typeof step.uses === 'string' && step.uses.includes('github-script'),
+	);
+	assert.notEqual(scripts.length, 0, 'no github-script steps found');
+
+	for (const [index, step] of scripts.entries()) {
+		const script = (step.with as { script?: unknown })?.script;
+		assert.equal(
+			typeof script,
+			'string',
+			`step \`${String(step.name)}\` has no script`,
+		);
+
+		const path = join(dir, `script-${index}.mjs`);
+		writeFileSync(
+			path,
+			`void (async () => {\n${String(script)}\n})();\n`,
+			'utf8',
+		);
+
+		const checked = spawnSync(process.execPath, ['--check', path], {
+			encoding: 'utf8',
+		});
+		assert.equal(
+			checked.status,
+			0,
+			`step \`${String(step.name)}\`:\n${checked.stderr}`,
+		);
+	}
+});

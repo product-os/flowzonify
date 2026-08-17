@@ -44,15 +44,9 @@ outputs:
       decided not to act. Always the truth; the `on-*` inputs only change how loudly
       it is said.
     value: ${{ steps.outcome.outputs.status }}
-  pull-request-number:
-    description: The pull request number, when there is one.
-    value: ${{ steps.outcome.outputs.pull-request-number }}
   pull-request-url:
     description: The pull request URL, when there is one.
-    value: ${{ steps.outcome.outputs.pull-request-url }}
-  pull-request-operation:
-    description: What create-pull-request did — `created`, `updated`, `closed` or `none`.
-    value: ${{ steps.outcome.outputs.pull-request-operation }}
+    value: ${{ steps.cpr.outputs.pull-request-url }}
 
 runs:
   using: composite
@@ -168,27 +162,57 @@ runs:
           exit "${migrated}"
         fi
 
-        node "${cli}" --list > "${work}/list.txt"
-
         echo "report=${work}/report.json" >> "${GITHUB_OUTPUT}"
-        echo "list=${work}/list.txt" >> "${GITHUB_OUTPUT}"
       env:
         ONLY: ${{ inputs.only }}
 
-    - name: Write the commit message and pull request body
-      id: body
+    - name: Read the migration report
+      id: report
       if: steps.migrate.outputs.report != ''
-      shell: bash
-      run: node "${GITHUB_ACTION_PATH}/action/body.ts"
+      uses: actions/github-script@d746ffe35508b1917358783b479e04febd2b8f71 # v9.0.0
       env:
-        FLOWZONIFY_REPORT: ${{ steps.migrate.outputs.report }}
-        FLOWZONIFY_LIST: ${{ steps.migrate.outputs.list }}
-        FLOWZONIFY_REPO_YML: ${{ github.workspace }}/repo.yml
-        FLOWZONIFY_BODY_PATH: ${{ runner.temp }}/flowzonify/body.md
-        FLOWZONIFY_SUBJECT: ${{ inputs.commit-message }}
+        REPORT: ${{ steps.migrate.outputs.report }}
+        SUBJECT: ${{ inputs.commit-message }}
+      with:
+        script: |
+          const { files } = JSON.parse(
+            require('node:fs').readFileSync(process.env.REPORT, 'utf8'),
+          );
+
+          // The step already failed on any exit code but 0 and 2, so this is a backstop:
+          // reporting a workflow that could not be read as "up to date" would be worse.
+          const failed = files.find((file) => file.status === 'error');
+          if (failed != null) {
+            core.setFailed(`${failed.path}: ${failed.error}`);
+            return;
+          }
+
+          const status = files.some((file) => file.status === 'blocked')
+            ? 'blocked'
+            : files.some((file) => file.changed)
+              ? 'migrated'
+              : 'unchanged';
+          core.setOutput('status', status);
+          if (status !== 'migrated') {
+            return;
+          }
+
+          // Both footers are versionist's, so a caller that turns versioning off gets
+          // neither. Anything short of a definite yes keeps one: a footer nothing reads
+          // is inert, a missing one fails the caller's own versioning job.
+          const footer = files.some((file) => file.versioningDisabled === true)
+            ? ''
+            : files.some((file) => file.repoType === 'yocto-based-os-image')
+              ? `Changelog-entry: ${process.env.SUBJECT}`
+              : 'Change-type: patch';
+
+          core.setOutput(
+            'commit-message',
+            [process.env.SUBJECT, footer].filter(Boolean).join('\n\n'),
+          );
 
     - name: Show what a real run would change
-      if: steps.body.outputs.status == 'migrated' && inputs.dry-run == 'true'
+      if: steps.report.outputs.status == 'migrated' && inputs.dry-run == 'true'
       shell: bash
       run: |
         {
@@ -204,7 +228,7 @@ runs:
     # as the app and a repository requiring signed commits is served.
     - name: Create or update the pull request
       id: cpr
-      if: steps.body.outputs.status == 'migrated' && inputs.dry-run != 'true'
+      if: steps.report.outputs.status == 'migrated' && inputs.dry-run != 'true'
       continue-on-error: true
       uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8.1.1
       with:
@@ -212,27 +236,68 @@ runs:
         base: ${{ inputs.base }}
         branch: ${{ inputs.branch }}
         add-paths: .github/workflows/*.yml
-        commit-message: ${{ steps.body.outputs.commit-message }}
-        title: ${{ steps.body.outputs.title }}
-        body-path: ${{ runner.temp }}/flowzonify/body.md
+        commit-message: ${{ steps.report.outputs.commit-message }}
+        title: ${{ inputs.commit-message }}
         labels: ${{ inputs.labels }}
         sign-commits: true
         signoff: true
         delete-branch: true
+        # Static on purpose. The diff is four lines of YAML and reads better than any
+        # description of it, so the body only has to say what opened this and why.
+        body: |
+          Keeps this repository's flowzone caller workflow in step with flowzone itself.
+
+          Opened by [flowzonify](https://github.com/product-os/flowzonify), which applies
+          the migration as a comment-preserving, idempotent transform. Run
+          `npx product-os/flowzonify` yourself to reproduce it.
 
     # Always runs: it owns the `status` output, and "this action decided not to act" is
-    # as real an outcome as the rest.
-    - name: Report
+    # as real an outcome as the rest. Anything other than `fail` or `skip` warns, so a
+    # typo in a mode cannot silence an outcome.
+    - name: Report the outcome
       id: outcome
-      shell: bash
-      run: node "${GITHUB_ACTION_PATH}/action/outcome.ts"
+      uses: actions/github-script@d746ffe35508b1917358783b479e04febd2b8f71 # v9.0.0
       env:
-        FLOWZONIFY_STATUS: ${{ steps.body.outputs.status || 'skipped' }}
-        FLOWZONIFY_REPORT: ${{ steps.migrate.outputs.report }}
-        FLOWZONIFY_CPR_OUTCOME: ${{ steps.cpr.outcome || 'skipped' }}
-        FLOWZONIFY_CPR_OPERATION: ${{ steps.cpr.outputs.pull-request-operation }}
-        FLOWZONIFY_PR_NUMBER: ${{ steps.cpr.outputs.pull-request-number }}
-        FLOWZONIFY_PR_URL: ${{ steps.cpr.outputs.pull-request-url }}
-        FLOWZONIFY_COMMITS_VERIFIED: ${{ steps.cpr.outputs.pull-request-commits-verified }}
-        FLOWZONIFY_ON_BLOCKED: ${{ inputs.on-blocked }}
-        FLOWZONIFY_ON_FAILURE: ${{ inputs.on-failure }}
+        MIGRATION: ${{ steps.report.outputs.status || 'skipped' }}
+        REPORT: ${{ steps.migrate.outputs.report }}
+        CPR: ${{ steps.cpr.outcome || 'skipped' }}
+        ON_BLOCKED: ${{ inputs.on-blocked }}
+        ON_FAILURE: ${{ inputs.on-failure }}
+      with:
+        script: |
+          const status =
+            process.env.CPR === 'failure' ? 'refused' : process.env.MIGRATION;
+          core.setOutput('status', status);
+
+          const say = (mode, message) =>
+            mode === 'fail'
+              ? core.setFailed(message)
+              : mode === 'skip'
+                ? undefined
+                : core.warning(message);
+
+          if (status === 'refused') {
+            // Nothing available here reports whether a token holds the `workflows`
+            // permission, and create-pull-request's error reaches us as a step outcome
+            // rather than text. So name the likeliest cause and point at the real one.
+            say(
+              process.env.ON_FAILURE,
+              'create-pull-request could not update the branch. The likeliest cause is a ' +
+                'token without the `workflows` permission, the only one that can change a ' +
+                'file under .github/workflows/. Its step log has the actual error.',
+            );
+          } else if (status === 'blocked') {
+            const { files } = JSON.parse(
+              require('node:fs').readFileSync(process.env.REPORT, 'utf8'),
+            );
+            const notes = files
+              .flatMap((file) => file.report)
+              .filter((entry) => entry.status === 'blocked')
+              .map((entry) => `  ${entry.id}: ${entry.note ?? 'no reason given'}`);
+            say(
+              process.env.ON_BLOCKED,
+              ['This workflow needs migrating by hand; nothing was changed.', ...notes].join(
+                '\n',
+              ),
+            );
+          }

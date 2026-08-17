@@ -58,7 +58,7 @@ The same migrations, run by flowzone against the repository calling it, opening 
 request the CLI deliberately leaves to somebody else. Branch management, rebasing, commit
 creation and the pull request itself are
 [create-pull-request](https://github.com/peter-evans/create-pull-request); this action is the
-glue that decides whether to act and turns the `--json` report into something worth reading.
+glue that decides whether to act and turns the `--json` report into a commit message.
 
 ```yaml
   flowzonify:
@@ -69,8 +69,12 @@ glue that decides whether to act and turns the `--json` report into something wo
       (github.event_name == 'push' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch))
       || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository)
     concurrency:
+      # Serialised per repository, and deliberately not cancelling: a run interrupted
+      # part way through create-pull-request can leave a pushed branch with no pull
+      # request. Queued runs wait instead, and GitHub keeps only the newest pending one,
+      # so whichever run does go ahead has the freshest base.
       group: flowzonify-${{ github.repository }}
-      cancel-in-progress: true
+      cancel-in-progress: false
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/create-github-app-token@v3
@@ -106,10 +110,13 @@ withdrawing the permission later must not light up a warning in every caller rep
 | `on-failure` | `warn` | `fail`, `warn` or `skip`, when create-pull-request fails. |
 | `commit-message` | `Migrate the flowzone caller workflow` | The commit subject, and the pull request title. |
 
-Outputs are `status`, `pull-request-number`, `pull-request-url` and
-`pull-request-operation`. `status` is one of `migrated`, `unchanged`, `blocked`, `refused`, or
-`skipped` when the action decided not to act — always the truth, since the `on-*` inputs
-choose how loudly an outcome is reported, never what it was.
+Outputs are `status` and `pull-request-url`. `status` is one of `migrated`, `unchanged`,
+`blocked`, `refused`, or `skipped` when the action decided not to act. It is always the truth,
+since the `on-*` inputs choose how loudly an outcome is reported, never what it was. Any value
+other than `fail` or `skip` warns, so a typo cannot silence one.
+
+The pull request body is static. The diff is a few lines of YAML and reads better than any
+description of it, so the body only says what opened the pull request and how to reproduce it.
 
 There is no input for the `flowzonify` version, and the action does not install one from the
 registry. It runs the CLI sitting beside it in its own checkout, so the code that migrates the
@@ -124,10 +131,16 @@ is never read, only this repository's.
 
 The versionist footer is not an input either. A caller that passes
 `disable_versioning: true` gets no footer at all, since both footers are versionist's and one
-nothing reads says something untrue about the commit. Otherwise the footer is chosen from
-`repo.yml`: a `yocto-based OS image` repository gets `Changelog-entry:`, since that is what its
-versionist strategy reads, and everything else gets `Change-type: patch`. A repository with no
-`repo.yml` also gets `Change-type:`, matching versionist's own fallback to the node strategy.
+nothing reads says something untrue about the commit. Otherwise the footer follows the
+repository type: a `yocto-based OS image` repository gets `Changelog-entry:`, since that is
+what its versionist strategy reads, and everything else gets `Change-type: patch`. A repository
+with no `repo.yml` also gets `Change-type:`, matching versionist's own fallback to the node
+strategy.
+
+Both facts come from `migrateFile`, which reports `versioningDisabled` and `repoType` beside
+its migration report. They are read from parsed YAML rather than matched in the text, since
+`disable_versioning` only means anything inside a job that calls flowzone, and a `type:` nested
+under an upstream declaration is not this repository's.
 
 Anything short of a definite `disable_versioning: true` keeps the footer — a value only known
 at run time, say. That is the safe direction: a footer versionist never reads is inert, while a
@@ -166,7 +179,7 @@ import type { Migration } from '../migrate.ts';
 
 export default {
   id: 'remove-something',
-  description: 'One line, shown by --list and in pull request bodies.',
+  description: 'One line, shown by --list.',
 
   apply(src, doc, context) {
     // `doc` is a parsed yaml Document; `src` is the original text.

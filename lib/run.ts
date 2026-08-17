@@ -8,6 +8,8 @@ import {
 } from 'node:fs';
 import { join, dirname, resolve, sep } from 'node:path';
 
+import { parse } from 'yaml';
+
 import { migrateSource } from './pipeline.ts';
 import type { LintState } from './pipeline.ts';
 import { MIGRATIONS } from './migrations/index.ts';
@@ -148,6 +150,11 @@ export interface FileResult {
 	 * commit needs a versionist footer.
 	 */
 	versioningDisabled?: boolean;
+	/**
+	 * The repository type, normalised, for whoever has to choose between the two
+	 * versionist footer conventions.
+	 */
+	repoType?: string;
 }
 
 /**
@@ -222,6 +229,7 @@ export function migrateFile(
 		// Of the migrated source rather than the original, since that is the file whoever
 		// commits this will be committing. No migration touches the input either way.
 		versioningDisabled: versioningDisabled(parseWorkflow(result.source)),
+		repoType: repoTypeOf(root),
 		lintChecked:
 			decision.outcome === 'migrated' ? decision.lintChecked : undefined,
 	};
@@ -249,6 +257,39 @@ export const REPO_TYPES = [
 	'yocto-based-OS-image',
 	'yocto-layer',
 ];
+
+/**
+ * The type `repo.yml` declares, normalised, or nothing when it declares none.
+ *
+ * Normalised because the two spellings in circulation have to reach the same value:
+ * repositories in the wild write `yocto-based OS image`, while `REPO_TYPES` above
+ * carries balena-versionist's hyphenated directory names. Whoever commits a migration
+ * picks the versionist footer from this, and the two conventions read different keys.
+ */
+function repoTypeOf(cwd: string): string | undefined {
+	let declared: unknown;
+	try {
+		// Parsed rather than matched in the text: a `type:` nested under an upstream
+		// declaration is that entry's, not this repository's.
+		const parsed = parse(readFileSync(join(cwd, 'repo.yml'), 'utf8')) as {
+			type?: unknown;
+		} | null;
+		declared = parsed?.type;
+	} catch {
+		return undefined;
+	}
+
+	if (typeof declared !== 'string') {
+		return undefined;
+	}
+
+	const value = declared
+		.trim()
+		.toLowerCase()
+		.replace(/[^a-z0-9]+/g, '-')
+		.replace(/^-|-$/g, '');
+	return value === '' ? undefined : value;
+}
 
 /** Whether this repository has to declare its type for versionist to work. */
 export function needsRepoType(cwd: string): boolean {
