@@ -1,7 +1,10 @@
-import { isCollection, isMap } from 'yaml';
+import { isMap } from 'yaml';
 import type { YAMLMap } from 'yaml';
 
+import { z } from 'zod';
+
 import { indentAt, isBlockMap, pairFor, pairRange } from '../source.ts';
+import { field } from '../schema.ts';
 import type { Edit, SourcePair } from '../source.ts';
 import type { Migration, UnitResult } from '../migrate.ts';
 
@@ -9,6 +12,9 @@ import type { Migration, UnitResult } from '../migrate.ts';
  * Deliberately does not describe the trigger as optional: it is what fork
  * contributions publish from today, and internal branches move onto it later.
  */
+/** A branch filter, in either flow or block style: `toJSON` flattens both. */
+const Branches = z.array(z.string());
+
 export const PUSH_TRIGGER_COMMENT = [
 	'# Fork contributions are rebuilt and published from the push to the default',
 	'# branch after merge.',
@@ -95,8 +101,8 @@ function reconcile(
 		};
 	}
 
-	const branches = pairFor(filters, 'branches');
-	if (!branches) {
+	const branches = field(filters, 'branches', Branches);
+	if (branches.pair == null) {
 		// No branch filter and no tag filter fires on every branch already.
 		if (!filters.has('tags')) {
 			return { status: 'skip' };
@@ -116,9 +122,7 @@ function reconcile(
 		};
 	}
 
-	const declared = isCollection(branches.value)
-		? branches.value.items.map((item) => String(item))
-		: [];
+	const declared = branches.value ?? [];
 	if (declared.some((pattern) => pattern === '*' || pattern === '**')) {
 		return { status: 'skip' };
 	}
@@ -146,10 +150,9 @@ function cannotCopyBranches(pullRequest: SourcePair): boolean {
 }
 
 function branchNames(pullRequest: SourcePair): string[] {
-	const branches = pairFor(pullRequest.value, 'branches');
-	return branches != null && isCollection(branches.value)
-		? branches.value.items.map((item) => String(item))
-		: ['main', 'master'];
+	return (
+		field(pullRequest.value, 'branches', Branches).value ?? ['main', 'master']
+	);
 }
 
 /** Give an existing push trigger a branch filter, leaving its tag filter alone. */

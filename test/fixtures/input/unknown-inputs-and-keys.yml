@@ -1,0 +1,41 @@
+name: Flowzone
+
+# Top-level keys this tool knows nothing about, which must survive untouched.
+concurrency:
+  group: flowzone-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  SOME_FUTURE_FLAG: "1"
+
+on:
+  pull_request:
+    types: [opened, synchronize, closed]
+    branches: [main, master]
+  # allow external contributions to use secrets within trusted code
+  pull_request_target:
+    types: [opened, synchronize, closed]
+    branches: [main, master]
+
+permissions:
+  contents: read
+
+jobs:
+  flowzone:
+    name: Flowzone
+    uses: product-os/flowzone/.github/workflows/flowzone.yml@master
+    secrets: inherit
+    # prevent duplicate workflow executions for pull_request and pull_request_target
+    if: |
+      (
+        github.event.pull_request.head.repo.full_name == github.repository &&
+        github.event_name == 'pull_request'
+      ) || (
+        github.event.pull_request.head.repo.full_name != github.repository &&
+        github.event_name == 'pull_request_target'
+      )
+    with:
+      custom_runs_on: '[["ubuntu-latest"],["macos-latest"]]'
+      docker_images: example-org/example-app
+      some_future_input: whatever
+      another_unknown: 42

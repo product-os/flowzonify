@@ -1,10 +1,12 @@
 import { isMap, isScalar } from 'yaml';
+import { z } from 'zod';
 import type { Document, YAMLMap } from 'yaml';
 
 import { callerJobs } from '../context.ts';
 import { indentAt, isBlockMap, pairFor, pairRange } from '../source.ts';
 import type { Edit, SourcePair } from '../source.ts';
 import type { Migration } from '../migrate.ts';
+import { field } from '../schema.ts';
 
 const GRANT_LINE =
 	'id-token: write  # https://docs.npmjs.com/trusted-publishers';
@@ -86,6 +88,9 @@ type Grant =
 
 /** The edits that give one permissions block — top-level or job-level — the grant. */
 function grantIn(src: string, permissions: SourcePair, where: string): Grant {
+	// A schema could say this is a mapping rather than the `read-all` shorthand, but the
+	// node has to be narrowed on its own anyway to walk its items and take ranges, so
+	// checking the value as well would only repeat this.
 	if (!isMap(permissions.value)) {
 		return {
 			status: 'blocked',
@@ -103,19 +108,23 @@ function grantIn(src: string, permissions: SourcePair, where: string): Grant {
 		};
 	}
 
-	const granted = pairFor(permissions.value, 'id-token');
-	if (granted && String(granted.value) === 'write') {
+	const granted = field(permissions.value, 'id-token', z.string());
+	if (granted.value === 'write') {
 		return { status: 'granted', edits: [] };
 	}
 
 	// Granting over an existing value splices that value alone, which is safe in
 	// any style. Everything else splices whole lines, which a flow mapping shares
 	// between its pairs.
-	if (granted && isScalar(granted.value) && granted.value.value != null) {
+	if (
+		granted.pair &&
+		isScalar(granted.pair.value) &&
+		granted.pair.value.value != null
+	) {
 		// `none` and `read` are declarations too, and neither can publish.
 		return {
 			status: 'granted',
-			edits: [grantWrite(src, granted, !isBlockMap(permissions.value))],
+			edits: [grantWrite(src, granted.pair, !isBlockMap(permissions.value))],
 		};
 	}
 	if (!isBlockMap(permissions.value)) {
@@ -128,7 +137,9 @@ function grantIn(src: string, permissions: SourcePair, where: string): Grant {
 	return {
 		status: 'granted',
 		edits: [
-			granted ? grantWrite(src, granted) : appendGrant(src, permissions.value),
+			granted.pair
+				? grantWrite(src, granted.pair)
+				: appendGrant(src, permissions.value),
 		],
 	};
 }

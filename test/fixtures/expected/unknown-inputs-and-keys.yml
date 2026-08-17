@@ -1,0 +1,36 @@
+name: Flowzone
+
+# Top-level keys this tool knows nothing about, which must survive untouched.
+concurrency:
+  group: flowzone-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  SOME_FUTURE_FLAG: "1"
+
+on:
+  pull_request:
+    types: [opened, synchronize, closed]
+    branches: [main, master]
+  # Fork contributions are rebuilt and published from the push to the default
+  # branch after merge.
+  push:
+    branches: [main, master]
+
+permissions:
+  contents: read
+  id-token: write  # https://docs.npmjs.com/trusted-publishers
+
+jobs:
+  flowzone:
+    name: Flowzone
+    uses: product-os/flowzone/.github/workflows/flowzone.yml@master
+    secrets: inherit
+    with:
+      custom_test_matrix: >
+        {
+          "os": [["ubuntu-latest"],["macos-latest"]]
+        }
+      docker_images: example-org/example-app
+      some_future_input: whatever
+      another_unknown: 42

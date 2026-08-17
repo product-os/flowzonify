@@ -1,6 +1,7 @@
 import { isMap } from 'yaml';
 
 import { isBlockMap, pairFor, pairRange } from '../source.ts';
+import { field, triggerNames, Triggers } from '../schema.ts';
 import type { Migration } from '../migrate.ts';
 
 export default {
@@ -10,10 +11,13 @@ export default {
 		'Remove the pull_request_target trigger; flowzone rejects the event and fork PRs now run on pull_request.',
 
 	apply(src, doc) {
-		const triggers = doc.get('on');
+		const on = field(doc.contents, 'on', Triggers);
+		const triggers = on.pair?.value;
 
+		// Membership rather than a substring search over the stringified node, which
+		// would also match the event's name appearing inside somebody's filter list.
 		if (!isBlockMap(triggers)) {
-			return String(triggers).includes('pull_request_target')
+			return triggerNames(on.value).includes('pull_request_target')
 				? {
 						status: 'blocked',
 						note: '`on:` is not a block mapping, so the pull_request_target trigger cannot be removed safely. Migrate this workflow by hand.',
