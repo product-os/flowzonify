@@ -1,0 +1,238 @@
+name: flowzonify
+description: Migrate this repository's flowzone caller workflow and open a pull request
+
+inputs:
+  token:
+    description: >-
+      A token that can write `contents`, `pull-requests` and `workflows`. The default
+      GITHUB_TOKEN has no `workflows` permission and so cannot change a file under
+      `.github/workflows/` — given it, this action skips silently and does nothing.
+      Mint an app installation token in the calling workflow instead.
+    default: ${{ github.token }}
+  branch:
+    description: The branch the migration lives on.
+    default: flowzone/migrate-config
+  base:
+    description: The branch to migrate from, and the pull request's base.
+    default: ${{ github.event.repository.default_branch }}
+  only:
+    description: Run only the named migrations, comma separated.
+    default: ''
+  labels:
+    description: Labels to put on the pull request, comma or newline separated.
+    default: ''
+  dry-run:
+    description: Migrate and report the diff, but never open a pull request.
+    default: 'false'
+  on-blocked:
+    description: >-
+      What to do when the workflow needs migrating by hand — `fail`, `warn` or `skip`.
+    default: warn
+  on-failure:
+    description: >-
+      What to do when create-pull-request fails — `fail`, `warn` or `skip`. Defaults to
+      `warn` so a caller does not go red before the app is granted `workflows` write.
+    default: warn
+  commit-message:
+    description: The commit subject, and the pull request title.
+    default: Migrate the flowzone caller workflow
+
+outputs:
+  status:
+    description: >-
+      `migrated`, `unchanged`, `blocked`, `refused`, or `skipped` when this action
+      decided not to act. Always the truth; the `on-*` inputs only change how loudly
+      it is said.
+    value: ${{ steps.outcome.outputs.status }}
+  pull-request-number:
+    description: The pull request number, when there is one.
+    value: ${{ steps.outcome.outputs.pull-request-number }}
+  pull-request-url:
+    description: The pull request URL, when there is one.
+    value: ${{ steps.outcome.outputs.pull-request-url }}
+  pull-request-operation:
+    description: What create-pull-request did — `created`, `updated`, `closed` or `none`.
+    value: ${{ steps.outcome.outputs.pull-request-operation }}
+
+runs:
+  using: composite
+  steps:
+    # Cheapest decision first, and the one that has to cost nothing: a caller whose
+    # token mint soft-failed passes an empty string, and `workflows` is not a
+    # GITHUB_TOKEN permission at all, so neither can ever write this file. Skipping
+    # silently is what lets the permission be withdrawn later without lighting up a
+    # warning in every repository.
+    - name: Look for a token that could write a workflow
+      id: token
+      shell: bash
+      run: |
+        if [ -z "${TOKEN}" ] || [ "${TOKEN}" = "${DEFAULT_TOKEN}" ]; then
+          echo 'no token that can write workflows; nothing to do'
+          echo 'usable=false' >> "${GITHUB_OUTPUT}"
+        else
+          echo "::add-mask::${TOKEN}"
+          echo 'usable=true' >> "${GITHUB_OUTPUT}"
+        fi
+      env:
+        TOKEN: ${{ inputs.token }}
+        DEFAULT_TOKEN: ${{ github.token }}
+
+    # No API call, so no github-script: the base is in both event payloads, and the
+    # rest is the event, the ref and the branch name.
+    - name: Decide whether to act
+      id: gate
+      if: steps.token.outputs.usable == 'true'
+      shell: bash
+      run: |
+        act=false
+        if [ -z "${BASE}" ]; then
+          echo 'no base branch to migrate from'
+        elif [ "${HEAD_REF}" = "${BRANCH}" ]; then
+          # This action's own pull request. Acting on it would force-push the branch,
+          # fire `synchronize`, and run this again — installation-token pushes do
+          # trigger workflows. Keyed on the branch name so it holds for every event.
+          echo 'this is the migration pull request itself'
+        elif [ "${EVENT}" = 'push' ] && [ "${GITHUB_REF}" = "refs/heads/${BASE}" ]; then
+          act=true
+        elif [ "${EVENT}" = 'pull_request' ] && [ "${HEAD_REPO}" = "${GITHUB_REPOSITORY}" ]; then
+          # Internal pull requests only. A fork has no token that can write workflows,
+          # and reaching this code with one would be a serious problem.
+          act=true
+        else
+          echo "nothing to do for ${EVENT} on ${GITHUB_REF}"
+        fi
+        echo "act=${act}" >> "${GITHUB_OUTPUT}"
+      env:
+        BASE: ${{ inputs.base }}
+        BRANCH: ${{ inputs.branch }}
+        EVENT: ${{ github.event_name }}
+        HEAD_REF: ${{ github.head_ref }}
+        HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+
+    # The base explicitly, not whatever the caller checked out: it makes a `push` run
+    # and a `pull_request` run compute the same result, which is what makes running on
+    # both safe. It also means this action needs a job whose workspace it owns.
+    - name: Check out the base branch
+      if: steps.gate.outputs.act == 'true'
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      with:
+        ref: ${{ inputs.base }}
+        fetch-depth: 1
+        token: ${{ inputs.token }}
+
+    - name: Migrate the caller workflow
+      id: migrate
+      if: steps.gate.outputs.act == 'true'
+      shell: bash
+      run: |
+        workflow="${GITHUB_WORKSPACE}/.github/workflows/flowzone.yml"
+        if [ ! -f "${workflow}" ]; then
+          echo 'no .github/workflows/flowzone.yml; not a flowzone caller'
+          exit 0
+        fi
+
+        # The CLI beside this action, not a release fetched by number. The action turns
+        # the CLI's report into a commit message, so they have to be the same code — and
+        # for a branch or commit ref, the last published version is older than the source
+        # at that ref. The runner checks the action out without installing anything, so
+        # the one runtime dependency has to be installed here.
+        #
+        # --ignore-scripts because `prepare` builds with tsc, which --omit=dev leaves
+        # uninstalled. Run from the action's own directory, so it is this repository's
+        # .npmrc that is read and never the one belonging to the repository being
+        # migrated, in a job holding a token that can write workflows.
+        cd "${GITHUB_ACTION_PATH}"
+        npm ci --omit=dev --ignore-scripts
+
+        cli="${GITHUB_ACTION_PATH}/bin/flowzonify.ts"
+
+        # The CLI takes an absolute path and reads the repository around it, so nothing
+        # below depends on the working directory.
+        work="${RUNNER_TEMP}/flowzonify"
+        mkdir -p "${work}"
+
+        args=(--json)
+        if [ -n "${ONLY}" ]; then
+          args+=(--only "${ONLY}")
+        fi
+
+        set +e
+        node "${cli}" "${args[@]}" -- "${workflow}" > "${work}/report.json"
+        migrated=$?
+        set -e
+
+        # 0 migrated or already up to date, 2 needs a human — both leave a report worth
+        # reading. 1 means the workflow could not be parsed or failed validation.
+        if [ "${migrated}" != '0' ] && [ "${migrated}" != '2' ]; then
+          cat "${work}/report.json" || true
+          exit "${migrated}"
+        fi
+
+        node "${cli}" --list > "${work}/list.txt"
+
+        echo "report=${work}/report.json" >> "${GITHUB_OUTPUT}"
+        echo "list=${work}/list.txt" >> "${GITHUB_OUTPUT}"
+      env:
+        ONLY: ${{ inputs.only }}
+
+    - name: Write the commit message and pull request body
+      id: body
+      if: steps.migrate.outputs.report != ''
+      shell: bash
+      run: node "${GITHUB_ACTION_PATH}/action/body.ts"
+      env:
+        FLOWZONIFY_REPORT: ${{ steps.migrate.outputs.report }}
+        FLOWZONIFY_LIST: ${{ steps.migrate.outputs.list }}
+        FLOWZONIFY_REPO_YML: ${{ github.workspace }}/repo.yml
+        FLOWZONIFY_BODY_PATH: ${{ runner.temp }}/flowzonify/body.md
+        FLOWZONIFY_SUBJECT: ${{ inputs.commit-message }}
+
+    - name: Show what a real run would change
+      if: steps.body.outputs.status == 'migrated' && inputs.dry-run == 'true'
+      shell: bash
+      run: |
+        {
+          echo '### flowzonify: dry run'
+          echo
+          echo '```diff'
+          git -C "${GITHUB_WORKSPACE}" diff -- .github/workflows/flowzone.yml
+          echo '```'
+        } >> "${GITHUB_STEP_SUMMARY}"
+
+    # continue-on-error so the next step can apply `on-failure` rather than the job
+    # dying here. sign-commits creates the commit through the REST API, so it is signed
+    # as the app and a repository requiring signed commits is served.
+    - name: Create or update the pull request
+      id: cpr
+      if: steps.body.outputs.status == 'migrated' && inputs.dry-run != 'true'
+      continue-on-error: true
+      uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8.1.1
+      with:
+        token: ${{ inputs.token }}
+        base: ${{ inputs.base }}
+        branch: ${{ inputs.branch }}
+        add-paths: .github/workflows/*.yml
+        commit-message: ${{ steps.body.outputs.commit-message }}
+        title: ${{ steps.body.outputs.title }}
+        body-path: ${{ runner.temp }}/flowzonify/body.md
+        labels: ${{ inputs.labels }}
+        sign-commits: true
+        signoff: true
+        delete-branch: true
+
+    # Always runs: it owns the `status` output, and "this action decided not to act" is
+    # as real an outcome as the rest.
+    - name: Report
+      id: outcome
+      shell: bash
+      run: node "${GITHUB_ACTION_PATH}/action/outcome.ts"
+      env:
+        FLOWZONIFY_STATUS: ${{ steps.body.outputs.status || 'skipped' }}
+        FLOWZONIFY_REPORT: ${{ steps.migrate.outputs.report }}
+        FLOWZONIFY_CPR_OUTCOME: ${{ steps.cpr.outcome || 'skipped' }}
+        FLOWZONIFY_CPR_OPERATION: ${{ steps.cpr.outputs.pull-request-operation }}
+        FLOWZONIFY_PR_NUMBER: ${{ steps.cpr.outputs.pull-request-number }}
+        FLOWZONIFY_PR_URL: ${{ steps.cpr.outputs.pull-request-url }}
+        FLOWZONIFY_COMMITS_VERIFIED: ${{ steps.cpr.outputs.pull-request-commits-verified }}
+        FLOWZONIFY_ON_BLOCKED: ${{ inputs.on-blocked }}
+        FLOWZONIFY_ON_FAILURE: ${{ inputs.on-failure }}

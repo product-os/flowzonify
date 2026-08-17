@@ -7,6 +7,7 @@ import {
 	callerJobs,
 	inputRemoval,
 	jobPassingInput,
+	versioningDisabled,
 } from '../lib/context.ts';
 
 const names = (src: string) =>
@@ -200,4 +201,64 @@ test('inputRemoval still drops a flow-style block that owns its line entirely', 
 	assert.ok(found);
 
 	assert.equal(String(inputRemoval(found)?.key), 'with');
+});
+
+const disabled = (src: string) => versioningDisabled(parseDocument(src));
+
+const withVersioning = (value: string) =>
+	withInputs(`    with:\n      disable_versioning: ${value}\n`);
+
+test('versioningDisabled sees a caller that turns versioning off', () => {
+	assert.equal(disabled(withVersioning('true')), true);
+});
+
+test('versioningDisabled sees the quoted spelling too', () => {
+	// flowzone declares the input as `type: boolean`, so GitHub accepts either.
+	assert.equal(disabled(withVersioning("'true'")), true);
+});
+
+test('versioningDisabled leaves versioning on when the input says false', () => {
+	assert.equal(disabled(withVersioning('false')), false);
+});
+
+test('versioningDisabled leaves versioning on when there is no such input', () => {
+	assert.equal(
+		disabled(withInputs('    with:\n      github_prerelease: true\n')),
+		false,
+	);
+});
+
+test('versioningDisabled leaves versioning on when there is no with block', () => {
+	assert.equal(disabled(withInputs('    secrets: inherit\n')), false);
+});
+
+test('versioningDisabled leaves versioning on for a value it cannot evaluate', () => {
+	// An expression is only known at run time. Assuming versioning is on is the safe
+	// direction: a redundant footer is inert, while a missing one fails the caller's
+	// versioning job.
+	assert.equal(disabled(withVersioning('${{ vars.SKIP }}')), false);
+});
+
+test('versioningDisabled ignores the input on a job that is not a caller', () => {
+	// The reason this reads the parsed document rather than matching text: the input
+	// only means anything inside a job that calls flowzone.
+	assert.equal(
+		disabled(`jobs:
+  something-else:
+    uses: other-org/other/.github/workflows/build.yml@master
+    with:
+      disable_versioning: true
+  flowzone:
+    uses: product-os/flowzone/.github/workflows/flowzone.yml@master
+    secrets: inherit
+`),
+		false,
+	);
+});
+
+test('versioningDisabled leaves versioning on when nothing calls flowzone', () => {
+	assert.equal(
+		disabled('jobs:\n  build:\n    runs-on: ubuntu-latest\n'),
+		false,
+	);
 });

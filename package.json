@@ -17,8 +17,8 @@
     "build": "npm run clean && tsc --project tsconfig.build.json",
     "test": "node --test",
     "posttest": "npm run lint",
-    "lint": "balena-lint lib bin scripts test && tsc --noEmit && npm run lint:workflows",
-    "lint-fix": "balena-lint --fix lib bin scripts test",
+    "lint": "balena-lint lib bin action scripts test && tsc --noEmit && npm run lint:workflows",
+    "lint-fix": "balena-lint --fix lib bin action scripts test",
     "lint:workflows": "if command -v actionlint >/dev/null 2>&1; then actionlint -color; else echo 'actionlint not installed'; fi",
     "prepack": "npm run build",
     "prepare": "node -e \"try { (await import('husky')).default() } catch (e) { if (e.code !== 'ERR_MODULE_NOT_FOUND') throw e }\" --input-type module && npm run build"

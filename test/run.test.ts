@@ -340,3 +340,25 @@ test('context does not come from the directory the tool was invoked in', () => {
 	// Still migrated, so the assertion above is about context and not about a no-op.
 	assert.ok(!written.includes('pull_request_target'));
 });
+
+test('reports that a caller leaves versioning on', () => {
+	// The action needs this to decide whether its commit needs a versionist footer.
+	const dir = repo({ [WORKFLOW_PATH]: LEGACY_CALLER });
+	const result = migrateFile(join(dir, WORKFLOW_PATH));
+
+	assert.equal(result.status, 'ok');
+	assert.equal(result.versioningDisabled, false);
+});
+
+test('reports that a caller turns versioning off', () => {
+	const dir = repo({
+		[WORKFLOW_PATH]: LEGACY_CALLER.replace(
+			'    secrets: inherit\n',
+			'    with:\n      disable_versioning: true\n    secrets: inherit\n',
+		),
+	});
+	const result = migrateFile(join(dir, WORKFLOW_PATH));
+
+	assert.equal(result.status, 'ok');
+	assert.equal(result.versioningDisabled, true);
+});

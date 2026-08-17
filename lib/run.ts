@@ -11,7 +11,8 @@ import { join, dirname, resolve, sep } from 'node:path';
 import { migrateSource } from './pipeline.ts';
 import type { LintState } from './pipeline.ts';
 import { MIGRATIONS } from './migrations/index.ts';
-import { errorMessage } from './migrate.ts';
+import { versioningDisabled } from './context.ts';
+import { errorMessage, parseWorkflow } from './migrate.ts';
 import type { Context, Migration, ReportEntry, RunStatus } from './migrate.ts';
 
 export const WORKFLOW_PATH = '.github/workflows/flowzone.yml';
@@ -141,6 +142,12 @@ export interface FileResult {
 	report: ReportEntry[];
 	error?: string;
 	lintChecked?: LintState;
+	/**
+	 * Whether the migrated caller turns flowzone's versioning off. Reported for a
+	 * workflow that got as far as a result, so whoever commits it knows whether the
+	 * commit needs a versionist footer.
+	 */
+	versioningDisabled?: boolean;
 }
 
 /**
@@ -212,6 +219,9 @@ export function migrateFile(
 		status: result.status,
 		changed: result.changed,
 		report: result.report,
+		// Of the migrated source rather than the original, since that is the file whoever
+		// commits this will be committing. No migration touches the input either way.
+		versioningDisabled: versioningDisabled(parseWorkflow(result.source)),
 		lintChecked:
 			decision.outcome === 'migrated' ? decision.lintChecked : undefined,
 	};

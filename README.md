@@ -52,6 +52,93 @@ versioned by the wrong strategy — `init` refuses it and asks for `--type`, wri
 `repo.yml`. Repositories with a `package.json` need nothing, since versionist's default is already
 right for them, and an existing `repo.yml` is never touched.
 
+## GitHub Action
+
+The same migrations, run by flowzone against the repository calling it, opening the pull
+request the CLI deliberately leaves to somebody else. Branch management, rebasing, commit
+creation and the pull request itself are
+[create-pull-request](https://github.com/peter-evans/create-pull-request); this action is the
+glue that decides whether to act and turns the `--json` report into something worth reading.
+
+```yaml
+  flowzonify:
+    name: Flowzonify
+    # A job of its own: this action checks the base branch out into the workspace, so
+    # sharing a job with steps that expect a different ref would rewrite their tree.
+    if: |
+      (github.event_name == 'push' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch))
+      || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository)
+    concurrency:
+      group: flowzonify-${{ github.repository }}
+      cancel-in-progress: true
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/create-github-app-token@v3
+        id: token
+        # The `workflows` permission is meant to be withdrawn once most repositories
+        # have been migrated. Soft-failing here means that withdrawal is a no-op.
+        continue-on-error: true
+        with:
+          app-id: ${{ secrets.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          permission-contents: write
+          permission-pull-requests: write
+          permission-workflows: write
+      - uses: product-os/flowzonify@v0.4.0
+        with:
+          token: ${{ steps.token.outputs.token }}
+```
+
+`workflows` is not one of `GITHUB_TOKEN`'s permissions — the key does not exist — so the
+default token can never change a file under `.github/workflows/`. Given it, or given the empty
+string a soft-failed token mint produces, this action **skips silently**. That is the point:
+withdrawing the permission later must not light up a warning in every caller repository.
+
+| Input | Default | What it is |
+| --- | --- | --- |
+| `token` | `${{ github.token }}` | A token that can write `contents`, `pull-requests` and `workflows`. Anything less and the action does nothing. |
+| `branch` | `flowzone/migrate-config` | The branch the migration lives on. |
+| `base` | the default branch | The branch to migrate from, and the pull request's base. |
+| `only` | | Run only the named migrations, comma separated. |
+| `labels` | | Labels for the pull request. |
+| `dry-run` | `false` | Report the diff in the step summary and open nothing. |
+| `on-blocked` | `warn` | `fail`, `warn` or `skip`, when a workflow needs migrating by hand. |
+| `on-failure` | `warn` | `fail`, `warn` or `skip`, when create-pull-request fails. |
+| `commit-message` | `Migrate the flowzone caller workflow` | The commit subject, and the pull request title. |
+
+Outputs are `status`, `pull-request-number`, `pull-request-url` and
+`pull-request-operation`. `status` is one of `migrated`, `unchanged`, `blocked`, `refused`, or
+`skipped` when the action decided not to act — always the truth, since the `on-*` inputs
+choose how loudly an outcome is reported, never what it was.
+
+There is no input for the `flowzonify` version, and the action does not install one from the
+registry. It runs the CLI sitting beside it in its own checkout, so the code that migrates the
+workflow and the code that describes the migration in the commit message are always the same
+release. Referencing the action by a commit sha — flowzone's convention — would otherwise run
+whatever was last *published*, which at a post-release sha is older than the source at that
+sha, and a pull request could end up describing migrations other than the ones in its diff.
+
+The cost is one `npm ci --omit=dev --ignore-scripts` in the action's own directory, since the
+runner checks an action out without installing anything. That also means the caller's `.npmrc`
+is never read, only this repository's.
+
+The versionist footer is not an input either. A caller that passes
+`disable_versioning: true` gets no footer at all, since both footers are versionist's and one
+nothing reads says something untrue about the commit. Otherwise the footer is chosen from
+`repo.yml`: a `yocto-based OS image` repository gets `Changelog-entry:`, since that is what its
+versionist strategy reads, and everything else gets `Change-type: patch`. A repository with no
+`repo.yml` also gets `Change-type:`, matching versionist's own fallback to the node strategy.
+
+Anything short of a definite `disable_versioning: true` keeps the footer — a value only known
+at run time, say. That is the safe direction: a footer versionist never reads is inert, while a
+missing one fails the caller's own versioning job.
+
+The action cannot tell you *why* create-pull-request failed. No API reports an installation
+token's own permissions, and the step outcome reaches us as a boolean, so a refusal names the
+likeliest cause — a token without `workflows` — and points at the create-pull-request step log
+for the real error. Requesting the permission when the token is minted is what turns that into
+a precise, one-time failure instead.
+
 ## Migrations
 
 Run `flowzonify --list` for the current set.

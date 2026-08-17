@@ -37,6 +37,36 @@ export function isCaller(doc: Document.Parsed): boolean {
 	return callerJobs(doc).length > 0;
 }
 
+/**
+ * Whether this caller turns flowzone's versioning off, which decides whether a commit
+ * touching it needs a versionist footer at all.
+ *
+ * Read from the parsed document rather than matched in the text because the input only
+ * means anything inside a job that calls flowzone: another job's `disable_versioning`
+ * is somebody else's input with the same name.
+ *
+ * Anything other than an explicit truthy value leaves versioning on, including an
+ * expression, whose value is only known when the workflow runs. That is the safe
+ * direction — a footer versionist never reads is inert, while a missing one fails the
+ * caller's own versioning job.
+ */
+export function versioningDisabled(doc: Document.Parsed): boolean {
+	return callerJobs(doc).some(({ node }) => {
+		const inputs = pairFor(node, 'with');
+		if (inputs == null || !isMap(inputs.value)) {
+			return false;
+		}
+
+		// flowzone declares the input as `type: boolean`, so a caller can write it either
+		// bare or quoted and GitHub accepts both.
+		const disable = pairFor(
+			inputs.value,
+			'disable_versioning',
+		)?.value?.toJSON();
+		return disable === true || disable === 'true';
+	});
+}
+
 /** The `with:` pair of a caller job and the pair for one input inside it. */
 interface CallerInput {
 	inputs: SourcePair;
