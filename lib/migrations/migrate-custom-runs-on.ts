@@ -5,6 +5,7 @@ import {
 	jobPassingInput,
 } from '../context.ts';
 import { indentAt, isBlockMap, pairRange } from '../source.ts';
+import { field, RunnersJson } from '../schema.ts';
 import type { SourcePair } from '../source.ts';
 import type { Migration } from '../migrate.ts';
 
@@ -46,7 +47,7 @@ export default {
 			if (!found) {
 				continue;
 			}
-			const { block, input: runners } = found;
+			const { block } = found;
 
 			const targets = MATRIX_JOBS.filter((job) => actions.includes(job));
 			const clash = targets.find((job) => block.has(matrixKey(job)));
@@ -57,18 +58,26 @@ export default {
 				};
 			}
 
-			const value = runnersJson(String(runners.value));
-			if (value == null) {
+			const runners = field(block, INPUT, RunnersJson);
+			if (runners.value == null || runners.pair == null) {
 				return {
 					status: 'blocked',
 					note: `job \`${name}\` sets ${INPUT} to something that is not a JSON array, so it cannot become a matrix \`os\` property. Migrate this workflow by hand.`,
 				};
 			}
 
+			// The schema says the labels are strings; it cannot say how the caller wrote
+			// them. A value on one line is kept verbatim, and a block scalar's newlines
+			// would break out of the generated matrix block, so those fold to JSON.
+			const spelling = String(runners.pair.value);
+			const value = spelling.includes('\n')
+				? JSON.stringify(runners.value)
+				: spelling;
+
 			let target: SourcePair | undefined;
 			if (targets.length > 0) {
 				// Replacing the input in place splices block-style matrix lines into `with:`.
-				target = isBlockMap(block) ? runners : undefined;
+				target = isBlockMap(block) ? runners.pair : undefined;
 			} else {
 				// No matrix job can carry the runners, so the input is dead configuration,
 				// removed under the shared rules.
@@ -82,7 +91,7 @@ export default {
 			}
 
 			const [start, end] = pairRange(src, target);
-			const indent = indentAt(src, runners.key.range[0]);
+			const indent = indentAt(src, runners.pair.key.range[0]);
 
 			edits.push({
 				start,
@@ -112,23 +121,6 @@ export default {
 		return job && `job \`${job}\` still passes ${INPUT}`;
 	},
 } satisfies Migration;
-
-/**
- * The runners value as a single line of JSON, keeping the caller's own spelling
- * when it already fits on one. A block scalar's newlines would break out of the
- * generated matrix block, so a multi-line value folds to canonical JSON instead.
- */
-function runnersJson(value: string): string | undefined {
-	try {
-		const parsed = JSON.parse(value);
-		if (!Array.isArray(parsed)) {
-			return undefined;
-		}
-		return value.includes('\n') ? JSON.stringify(parsed) : value;
-	} catch {
-		return undefined;
-	}
-}
 
 const matrixKey = (job: string) => `custom_${job}_matrix`;
 

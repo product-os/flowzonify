@@ -38,7 +38,8 @@
   },
   "homepage": "https://github.com/product-os/flowzonify#readme",
   "dependencies": {
-    "yaml": "^2.8.1"
+    "yaml": "^2.8.1",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@balena/lint": "^9.4.6",

@@ -1,5 +1,8 @@
+import { z } from 'zod';
+
 import { callerJobs } from '../context.ts';
-import { pairFor, pairRange } from '../source.ts';
+import { pairRange } from '../source.ts';
+import { field } from '../schema.ts';
 import type { Migration } from '../migrate.ts';
 
 /**
@@ -27,12 +30,12 @@ export default {
 		const edits = [];
 
 		for (const { name, node } of callerJobs(doc)) {
-			const condition = pairFor(node, 'if');
-			if (!condition) {
+			const condition = field(node, 'if', z.string());
+			if (condition.pair == null) {
 				continue;
 			}
 
-			const normalised = String(condition.value).replace(/\s+/g, '');
+			const normalised = (condition.value ?? '').replace(/\s+/g, '');
 
 			// The compact spelling never names pull_request_target, so recognising the
 			// known conditions has to come before asking whether this one mentions it.
@@ -46,7 +49,7 @@ export default {
 				};
 			}
 
-			const [start, end] = pairRange(src, condition);
+			const [start, end] = pairRange(src, condition.pair);
 			edits.push({ start, end, text: '' });
 		}
 
@@ -55,7 +58,7 @@ export default {
 
 	verify(doc) {
 		for (const { name, node } of callerJobs(doc)) {
-			const condition = String(node.get('if') ?? '');
+			const condition = field(node, 'if', z.string()).value ?? '';
 			// Not just a mention of the event: the compact spelling routes forks away
 			// without ever naming it.
 			if (

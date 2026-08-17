@@ -42,6 +42,10 @@ export function fixture(name: string): string {
  */
 const FIXTURE_CONTEXT: Record<string, Context | undefined> = {
 	'custom-runs-on.yml': { customActions: ['test'] },
+	'unknown-inputs-and-keys.yml': {
+		isNpmPackage: true,
+		customActions: ['test'],
+	},
 };
 
 export function fixturePairs() {
