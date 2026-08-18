@@ -111,9 +111,27 @@ withdrawing the permission later must not light up a warning in every caller rep
 | `commit-message` | `Migrate the flowzone caller workflow` | The commit subject, and the pull request title. |
 
 Outputs are `status` and `pull-request-url`. `status` is one of `migrated`, `unchanged`,
-`blocked`, `refused`, or `skipped` when the action decided not to act. It is always the truth,
-since the `on-*` inputs choose how loudly an outcome is reported, never what it was. Any value
-other than `fail` or `skip` warns, so a typo cannot silence one.
+`blocked`, `refused`, `declined` when a person has said no, or `skipped` when the action decided
+not to act. It is always the truth, since the `on-*` inputs choose how loudly an outcome is
+reported, never what it was. Any value other than `fail` or `skip` warns, so a typo cannot
+silence one.
+
+### When a person says no
+
+The branch is force-pushed on every run, and a fresh pull request is opened whenever one is
+missing, so two things a person does have to be respected before any work starts. Both report
+`status: declined` and log why, without an annotation: a decision meant to stick should not be
+re-announced on every push for the rest of the repository's life.
+
+- **A closed, unmerged pull request** means "not this repository". Reopen it to migrate again.
+  create-pull-request does not check, so without this a pull request closed today is replaced
+  tomorrow.
+- **A commit on the branch this action did not write.** Ours is a commit whose subject is the
+  `commit-message` input and whose author GitHub either resolved to a bot or could not resolve
+  at all. Anything else and the branch is left alone rather than force-pushed over. A person who
+  happens to use the same subject wrote the same migration, so recreating that loses nothing.
+
+A merged pull request is not an opt-out, and neither is a branch that does not exist yet.
 
 The pull request body is static. The diff is a few lines of YAML and reads better than any
 description of it, so the body only says what opened the pull request and how to reproduce it.
@@ -128,6 +146,12 @@ sha, and a pull request could end up describing migrations other than the ones i
 The cost is one `npm ci --omit=dev --ignore-scripts` in the action's own directory, since the
 runner checks an action out without installing anything. That also means the caller's `.npmrc`
 is never read, only this repository's.
+
+For the same reason the action runs `actions/setup-node` itself, asking for the version
+`package.json` requires. The runner sets no toolchain up for an action, so without it the CLI
+would run on whatever Node happened to be installed, and it needs 22.18 or newer for type
+stripping. A caller that already sets Node up gets a second, idempotent run of it, which is
+cheaper than every direct caller having to know.
 
 The versionist footer is not an input either. A caller that passes
 `disable_versioning: true` gets no footer at all, since both footers are versionist's and one

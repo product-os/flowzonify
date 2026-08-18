@@ -40,9 +40,9 @@ inputs:
 outputs:
   status:
     description: >-
-      `migrated`, `unchanged`, `blocked`, `refused`, or `skipped` when this action
-      decided not to act. Always the truth; the `on-*` inputs only change how loudly
-      it is said.
+      `migrated`, `unchanged`, `blocked`, `refused`, `declined` when a person has said
+      no, or `skipped` when this action decided not to act. Always the truth; the `on-*`
+      inputs only change how loudly it is said.
     value: ${{ steps.outcome.outputs.status }}
   pull-request-url:
     description: The pull request URL, when there is one.
@@ -103,11 +103,93 @@ runs:
         HEAD_REF: ${{ github.head_ref }}
         HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
 
+    # Both of the ways a person says "no". Before anything is checked out, because the
+    # answer to either is to leave the repository entirely alone.
+    - name: Look for a person's decision
+      id: guard
+      if: steps.gate.outputs.act == 'true'
+      uses: actions/github-script@d746ffe35508b1917358783b479e04febd2b8f71 # v9.0.0
+      env:
+        BRANCH: ${{ inputs.branch }}
+        BASE: ${{ inputs.base }}
+        SUBJECT: ${{ inputs.commit-message }}
+      with:
+        github-token: ${{ inputs.token }}
+        script: |
+          const { owner, repo } = context.repo;
+          const { BRANCH: branch, BASE: base, SUBJECT: subject } = process.env;
+
+          // A closed, unmerged pull request means "not this repository". Nothing else
+          // says that, and create-pull-request does not look: it would push the branch
+          // and open a fresh pull request, so today's decision would not survive.
+          const closed = await github.paginate(github.rest.pulls.list, {
+            owner,
+            repo,
+            base,
+            head: `${owner}:${branch}`,
+            state: 'closed',
+            per_page: 100,
+          });
+          const declined = closed.find((pull) => pull.merged_at == null);
+          if (declined != null) {
+            core.info(
+              `#${declined.number} was closed without merging, so this repository has ` +
+                'opted out. Reopen it to migrate again.',
+            );
+            core.setOutput('declined', `pull request #${declined.number} was closed`);
+            return;
+          }
+
+          // Every commit on the branch has to be one this action wrote, since the next
+          // run force-pushes over whatever is there. No branch yet means nothing to
+          // protect.
+          let commits;
+          try {
+            ({
+              data: { commits },
+            } = await github.rest.repos.compareCommitsWithBasehead({
+              owner,
+              repo,
+              basehead: `${base}...${branch}`,
+            }));
+          } catch (error) {
+            if (error.status === 404) {
+              return;
+            }
+            throw error;
+          }
+
+          // Ours means the subject this action writes, and an author GitHub either
+          // resolved to a bot or could not resolve at all. A person who happens to use
+          // the same subject wrote the same migration, so recreating it loses nothing.
+          const ours = (commit) =>
+            commit.commit.message.split('\n')[0] === subject &&
+            (commit.author == null || commit.author.type === 'Bot');
+
+          const foreign = commits.filter((commit) => !ours(commit));
+          if (foreign.length > 0) {
+            core.info(
+              `${branch} carries ${foreign.length} commit(s) this action did not write, ` +
+                `starting at ${foreign[0].sha.slice(0, 7)}. Leaving it alone rather than ` +
+                'force-pushing over them.',
+            );
+            core.setOutput('declined', 'the branch carries somebody else\'s commits');
+          }
+
+    # The runner sets no toolchain up for an action, so the CLI would otherwise run on
+    # whatever Node happens to be there. Duplicating a caller's own setup-node is cheap
+    # and idempotent, and callers who have none still get a working action.
+    - name: Set Node up
+      if: steps.gate.outputs.act == 'true' && steps.guard.outputs.declined == ''
+      uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      with:
+        node-version: '>=22.18.0'
+
     # The base explicitly, not whatever the caller checked out: it makes a `push` run
     # and a `pull_request` run compute the same result, which is what makes running on
     # both safe. It also means this action needs a job whose workspace it owns.
     - name: Check out the base branch
-      if: steps.gate.outputs.act == 'true'
+      if: steps.gate.outputs.act == 'true' && steps.guard.outputs.declined == ''
       uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       with:
         ref: ${{ inputs.base }}
@@ -116,7 +198,7 @@ runs:
 
     - name: Migrate the caller workflow
       id: migrate
-      if: steps.gate.outputs.act == 'true'
+      if: steps.gate.outputs.act == 'true' && steps.guard.outputs.declined == ''
       shell: bash
       run: |
         workflow="${GITHUB_WORKSPACE}/.github/workflows/flowzone.yml"
@@ -259,15 +341,25 @@ runs:
       uses: actions/github-script@d746ffe35508b1917358783b479e04febd2b8f71 # v9.0.0
       env:
         MIGRATION: ${{ steps.report.outputs.status || 'skipped' }}
+        DECLINED: ${{ steps.guard.outputs.declined }}
         REPORT: ${{ steps.migrate.outputs.report }}
         CPR: ${{ steps.cpr.outcome || 'skipped' }}
         ON_BLOCKED: ${{ inputs.on-blocked }}
         ON_FAILURE: ${{ inputs.on-failure }}
       with:
         script: |
-          const status =
-            process.env.CPR === 'failure' ? 'refused' : process.env.MIGRATION;
+          // A person's decision outranks everything: nothing ran, and nothing should be
+          // said twice about a choice that is meant to stick.
+          const status = process.env.DECLINED
+            ? 'declined'
+            : process.env.CPR === 'failure'
+              ? 'refused'
+              : process.env.MIGRATION;
           core.setOutput('status', status);
+          if (status === 'declined') {
+            core.info(`left alone: ${process.env.DECLINED}`);
+            return;
+          }
 
           const say = (mode, message) =>
             mode === 'fail'

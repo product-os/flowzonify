@@ -208,3 +208,22 @@ test('the github-script steps are syntactically valid JavaScript', () => {
 		);
 	}
 });
+
+test('the Node the action sets up is the Node the package requires', () => {
+	// The runner sets no toolchain up for an action, so the action does it itself. Two
+	// places naming a version is two places to forget, and only a check keeps them equal.
+	const engines = JSON.parse(
+		readFileSync(fileURLToPath(new URL('package.json', root)), 'utf8'),
+	) as { engines?: { node?: string } };
+
+	const setup = action.runs.steps.find(
+		(step) => typeof step.uses === 'string' && step.uses.includes('setup-node'),
+	);
+	assert.ok(setup, 'no setup-node step; the action runs the CLI with node');
+
+	assert.equal(
+		(setup.with as { 'node-version'?: string })['node-version'],
+		engines.engines?.node,
+		'setup-node asks for a different version than package.json requires',
+	);
+});
