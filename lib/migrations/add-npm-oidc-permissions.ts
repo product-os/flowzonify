@@ -6,14 +6,13 @@ import { indentAt, isBlockMap, pairFor, pairRange } from '../source.ts';
 import type { Edit, SourcePair } from '../source.ts';
 import type { Migration } from '../migrate.ts';
 
-const GRANT_LINE =
-	'id-token: write  # https://docs.npmjs.com/trusted-publishers';
+const GRANT_LINE = 'id-token: write';
 
 const BLOCK = [
 	'permissions:',
 	`  ${GRANT_LINE}`,
 	'  contents: read',
-	'  packages: read  # should we decide to publish to ghcr.io',
+	'  packages: read',
 ];
 
 const block = (indent = '') =>

@@ -4,11 +4,8 @@ on:
     types: [opened, synchronize, closed]
     branches:
       - "master"
-  # Fork contributions are rebuilt and published from the push to the default
-  # branch after merge.
   push:
-    branches:
-      - "master"
+    branches: [master]
 jobs:
   flowzone:
     name: Flowzone
