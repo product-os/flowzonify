@@ -1,4 +1,36 @@
 - commits:
+    - subject: Stop writing comments into caller workflows
+      hash: 81b8eadd1962689409ecbd6c34d84b561f5115c5
+      body: >
+        A comment the tool inserts is one no later migration can revise, since
+        the
+
+        caller is free to edit it. YAML is easy to migrate, stale prose is not.
+
+
+        add-push-trigger now splices a bare push block, and the init template
+        ships
+
+        without comments at all. What the trigger is for lives in the migration
+
+        description and the pull request body, which both stay current.
+
+
+        This repo's own caller config drops the comment too, since nothing would
+        ever
+
+        migrate it away.
+      footer:
+        Change-type: minor
+        change-type: minor
+        Signed-off-by: Kyle Harding <kyle@balena.io>
+        signed-off-by: Kyle Harding <kyle@balena.io>
+      author: Kyle Harding
+      nested: []
+  version: 0.4.0
+  title: ""
+  date: 2026-08-21T14:28:51.748Z
+- commits:
     - subject: Lock file maintenance
       hash: c22776a77f84d60a81fda846d0b529ef1fd5d16e
       body: |
