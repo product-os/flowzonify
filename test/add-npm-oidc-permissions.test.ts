@@ -145,11 +145,7 @@ test('upgrading replaces a comment that described the value being replaced', () 
 		!result.source.includes('locked down by default'),
 		'the comment now contradicts the value',
 	);
-	assert.ok(
-		result.source.includes(
-			'id-token: write  # https://docs.npmjs.com/trusted-publishers\n',
-		),
-	);
+	assert.ok(result.source.includes('id-token: write\n'));
 });
 
 test('upgrading a bare value splices the value alone', () => {

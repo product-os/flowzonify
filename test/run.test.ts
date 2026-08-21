@@ -13,7 +13,6 @@ import {
 } from '../lib/run.ts';
 import { migrate } from '../lib/migrate.ts';
 import { MIGRATIONS } from '../lib/migrations/index.ts';
-import { PUSH_TRIGGER_COMMENT } from '../lib/migrations/add-push-trigger.ts';
 import {
 	repo,
 	BLOCKED_CALLER,
@@ -153,10 +152,7 @@ test('init leaves the created workflow needing no migration for an npm package',
 	const result = initRepo(dir);
 
 	const created = readFileSync(join(dir, WORKFLOW_PATH), 'utf8');
-	assert.match(
-		created,
-		/^ {2}id-token: write {2}# https:\/\/docs\.npmjs\.com\/trusted-publishers$/m,
-	);
+	assert.match(created, /^ {2}id-token: write$/m);
 	assert.equal(result.migration.status, 'ok');
 	assert.equal(
 		migrateFile(join(dir, WORKFLOW_PATH), { cwd: dir }).changed,
@@ -286,10 +282,17 @@ test('the template init writes is already a complete caller config', () => {
 	);
 });
 
-test('the template and the migration agree on the push trigger comment', () => {
-	for (const line of PUSH_TRIGGER_COMMENT) {
-		assert.ok(CALLER_TEMPLATE.includes(line), `template is missing: ${line}`);
-	}
+test('init writes a workflow with no comment in it', () => {
+	// The template is only half of what init writes: the migrations run over it
+	// too, and for an npm package they add the permissions block.
+	const dir = repo({ 'package.json': '{"name":"x"}\n' });
+	initRepo(dir);
+
+	assert.doesNotMatch(
+		readFileSync(join(dir, WORKFLOW_PATH), 'utf8'),
+		/(^|\s)#/m,
+		'a comment init writes goes stale where no migration can reach it',
+	);
 });
 
 test('reports whether the schema check actually ran', () => {

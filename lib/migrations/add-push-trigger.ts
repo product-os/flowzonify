@@ -1,18 +1,9 @@
-import { isCollection, isMap } from 'yaml';
+import { isCollection, isMap, stringify } from 'yaml';
 import type { YAMLMap } from 'yaml';
 
 import { indentAt, isBlockMap, pairFor, pairRange } from '../source.ts';
 import type { Edit, SourcePair } from '../source.ts';
 import type { Migration, UnitResult } from '../migrate.ts';
-
-/**
- * Deliberately does not describe the trigger as optional: it is what fork
- * contributions publish from today, and internal branches move onto it later.
- */
-export const PUSH_TRIGGER_COMMENT = [
-	'# Fork contributions are rebuilt and published from the push to the default',
-	'# branch after merge.',
-];
 
 export default {
 	id: 'add-push-trigger',
@@ -42,19 +33,17 @@ export default {
 			return reconcile(src, existing, pullRequest);
 		}
 
-		if (cannotCopyBranches(pullRequest)) {
-			return { status: 'blocked', note: FLOW_BRANCHES_NOTE };
-		}
-
 		const indent = indentAt(src, pullRequest.key.range[0]);
 		const [, insertAt] = pairRange(src, pullRequest);
 		const lead = src[insertAt - 1] === '\n' ? '' : '\n';
 
-		const text =
-			lead +
-			PUSH_TRIGGER_COMMENT.map((line) => `${indent}${line}\n`).join('') +
-			`${indent}push:\n` +
-			branchesBlock(src, pullRequest, indent);
+		// No comment goes with it. Prose written into a caller repository is prose no
+		// later migration can revise, since the caller is free to edit it.
+		const branches = branchesLine(
+			branchNames(pullRequest),
+			childIndent(src, pullRequest),
+		);
+		const text = `${lead}${indent}push:\n${branches}`;
 
 		return {
 			status: 'applied',
@@ -107,13 +96,7 @@ function reconcile(
 				note: 'the push trigger is written in flow style, so a branches filter cannot be spliced into it. Migrate this workflow by hand.',
 			};
 		}
-		if (cannotCopyBranches(pullRequest)) {
-			return { status: 'blocked', note: FLOW_BRANCHES_NOTE };
-		}
-		return {
-			status: 'applied',
-			edits: [addBranches(src, existing, filters, pullRequest)],
-		};
+		return { status: 'applied', edits: [addBranches(src, filters, wanted)] };
 	}
 
 	const declared = isCollection(branches.value)
@@ -134,17 +117,6 @@ function reconcile(
 	};
 }
 
-const FLOW_BRANCHES_NOTE =
-	'the pull_request trigger is written in flow style, so its branches list cannot be copied into a push trigger. Migrate this workflow by hand.';
-
-/** branchesBlock copies the caller's branches lines verbatim, which needs them on lines of their own. */
-function cannotCopyBranches(pullRequest: SourcePair): boolean {
-	return (
-		!isBlockMap(pullRequest.value) &&
-		pairFor(pullRequest.value, 'branches') != null
-	);
-}
-
 function branchNames(pullRequest: SourcePair): string[] {
 	const branches = pairFor(pullRequest.value, 'branches');
 	return branches != null && isCollection(branches.value)
@@ -155,37 +127,44 @@ function branchNames(pullRequest: SourcePair): string[] {
 /** Give an existing push trigger a branch filter, leaving its tag filter alone. */
 function addBranches(
 	src: string,
-	push: SourcePair,
 	filters: YAMLMap.Parsed,
-	pullRequest: SourcePair,
+	wanted: string[],
 ): Edit {
-	const [, end] = pairRange(src, filters.items[filters.items.length - 1]);
-	// branchesBlock indents relative to the trigger key, as it does when inserting
-	// a whole push block, so pass the trigger's indent rather than its children's.
+	const last = filters.items[filters.items.length - 1];
+	const [, end] = pairRange(src, last);
 	return {
 		start: end,
 		end,
-		text: branchesBlock(src, pullRequest, indentAt(src, push.key.range[0])),
+		text: branchesLine(wanted, indentAt(src, last.key.range[0])),
 	};
 }
 
+/** One line, no padding: the shape callers write the list in by hand. */
+const FLOW_LIST = {
+	collectionStyle: 'flow',
+	flowCollectionPadding: false,
+	lineWidth: 0,
+} as const;
+
 /**
- * Reuse the caller's own `branches:` lines verbatim rather than re-rendering them.
- * Callers write the list in both flow and block style, and re-rendering one as the
- * other produces a diff on a line the migration has no business touching.
+ * The `branches:` line for a trigger. Composed from the parsed names rather than
+ * copied out of the caller's own lines: copied source brings their comments with
+ * it, and a comment about `pull_request` repeated under `push:` may not even be
+ * true there. yaml renders the list, so a pattern such as `*` is quoted the way
+ * YAML needs rather than the way a regex here guesses.
  */
-function branchesBlock(
-	src: string,
-	pullRequest: SourcePair,
-	indent: string,
-): string {
-	const branches = pairFor(pullRequest.value, 'branches');
+function branchesLine(names: string[], indent: string): string {
+	return `${indent}branches: ${stringify(names, FLOW_LIST)}`;
+}
 
-	if (!branches) {
-		return `${indent}  branches: [main, master]\n`;
-	}
-
-	const [start, end] = pairRange(src, branches);
-	const copied = src.slice(start, end);
-	return copied.endsWith('\n') ? copied : `${copied}\n`;
+/**
+ * The indentation for a line inside a trigger's block. Some callers indent by two
+ * spaces and some by four, so measure the block's first line rather than assume.
+ * A flow-style trigger has no line to measure, so fall back to two.
+ */
+function childIndent(src: string, trigger: SourcePair): string {
+	const first = isBlockMap(trigger.value) ? trigger.value.items[0] : undefined;
+	return first
+		? indentAt(src, first.key.range[0])
+		: `${indentAt(src, trigger.key.range[0])}  `;
 }

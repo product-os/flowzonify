@@ -16,17 +16,15 @@ test('adds a push trigger that mirrors the pull_request branches', () => {
 	assert.deepEqual(branchesOf(result.source), ['main', 'master']);
 });
 
-test('keeps the flow style of the branches list it copies', () => {
+test('writes the branch list on one line under the trigger', () => {
 	const result = applyUnit(unit, LEGACY_CALLER);
 	assert.ok(result.source.includes('  push:\n    branches: [main, master]\n'));
 });
 
-test('copies a block sequence of branches without mangling it', () => {
+test('writes a block sequence of branches out as names', () => {
 	const result = applyUnit(unit, fixture('block-sequence-branches'));
 	assert.equal(result.status, 'applied');
-	assert.ok(
-		result.source.includes('  push:\n    branches:\n      - "master"\n'),
-	);
+	assert.ok(result.source.includes('  push:\n    branches: [master]\n'));
 	assert.deepEqual(branchesOf(result.source), ['master']);
 });
 
@@ -40,17 +38,55 @@ jobs: {}
 	assert.deepEqual(branchesOf(applyUnit(unit, src).source), ['develop']);
 });
 
-test('explains what the trigger is for without implying it is optional', () => {
-	const result = applyUnit(unit, LEGACY_CALLER);
-	assert.match(
-		result.source,
-		/# Fork contributions are rebuilt and published from the push/,
+test('leaves the comments around the branches list where the caller wrote them', () => {
+	const src = `on:
+  pull_request:
+    # we only test the default branches
+    branches: [main, master] # and nothing else
+
+jobs: {}
+`;
+	const result = applyUnit(unit, src);
+
+	assert.deepEqual(branchesOf(result.source), ['main', 'master']);
+	assert.equal(
+		result.source.match(/#/g)?.length,
+		2,
+		'the caller keeps both comments, and push gets neither',
 	);
-	assert.doesNotMatch(
-		result.source,
-		/drop this trigger|test-only|do not need it/i,
-		'push becomes required for internal branches later; never suggest it can be dropped',
+});
+
+test('takes no comment from inside the branches list either', () => {
+	const src = `on:
+  pull_request:
+    branches:
+      - master # the old default
+      - main
+
+jobs: {}
+`;
+	const { status, edits = [], source } = applyUnit(unit, src);
+
+	assert.equal(status, 'applied');
+	assert.deepEqual(branchesOf(source), ['master', 'main']);
+	assert.ok(
+		!edits
+			.map((edit) => edit.text)
+			.join('')
+			.includes('#'),
+		'a comment this unit writes is one a later migration cannot revise',
 	);
+});
+
+test('quotes a branch pattern that would not survive as a bare flow scalar', () => {
+	const src = `on:
+  pull_request:
+    branches:
+      - "*" # everything
+
+jobs: {}
+`;
+	assert.deepEqual(branchesOf(applyUnit(unit, src).source), ['*']);
 });
 
 test('defaults to [main, master] when pull_request filters no branches', () => {
@@ -123,11 +159,11 @@ test('blocks a flow-style trigger mapping it cannot splice into', () => {
 	assert.equal(result.source, src);
 });
 
-test('blocks a flow-style pull_request whose branches it cannot copy', () => {
+test('mirrors the branches of a flow-style pull_request', () => {
 	const src = 'on:\n  pull_request: { branches: [main] }\n\njobs: {}\n';
 	const result = applyUnit(unit, src);
-	assert.equal(result.status, 'blocked');
-	assert.equal(result.source, src);
+	assert.equal(result.status, 'applied');
+	assert.deepEqual(branchesOf(result.source), ['main']);
 });
 
 test('adds the default branches when a flow-style pull_request filters none', () => {

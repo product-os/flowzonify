@@ -4,15 +4,13 @@ on:
   pull_request:
     types: [opened, synchronize, closed]
     branches: [main, master]
-  # Fork contributions are rebuilt and published from the push to the default
-  # branch after merge.
   push:
     branches: [main, master]
 
 permissions:
-  id-token: write  # https://docs.npmjs.com/trusted-publishers
+  id-token: write
   contents: read
-  packages: read  # should we decide to publish to ghcr.io
+  packages: read
 
 jobs:
   flowzone:

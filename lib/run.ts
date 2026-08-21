@@ -27,12 +27,9 @@ export const WORKFLOW_PATH = '.github/workflows/flowzone.yml';
 export const CALLER_TEMPLATE = `name: Flowzone
 
 on:
-  # Internal and fork PRs both run here; forks run with no secrets.
   pull_request:
     types: [opened, synchronize, closed]
     branches: [main, master]
-  # Fork contributions are rebuilt and published from the push to the default
-  # branch after merge.
   push:
     branches: [main, master]
 
