@@ -1,4 +1,17 @@
 - commits:
+    - subject: Lock file maintenance
+      hash: 742ad46c478e02f34860d1f0973ee1a78c0fe73e
+      body: |
+        Update 
+      footer:
+        Change-type: patch
+        change-type: patch
+      author: balena-renovate[bot]
+      nested: []
+  version: 0.4.1
+  title: ""
+  date: 2026-08-24T00:45:41.461Z
+- commits:
     - subject: Stop writing comments into caller workflows
       hash: 81b8eadd1962689409ecbd6c34d84b561f5115c5
       body: >
