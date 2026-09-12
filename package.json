@@ -41,7 +41,7 @@
     "yaml": "^2.8.1"
   },
   "devDependencies": {
-    "@balena/lint": "^9.4.6",
+    "@balena/lint": "^9.4.8",
     "@types/node": "24.13.3",
     "husky": "9.1.7",
     "lint-staged": "17.5.0",
