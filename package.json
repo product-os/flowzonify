@@ -45,7 +45,7 @@
     "@types/node": "24.13.4",
     "husky": "9.1.7",
     "lint-staged": "17.5.1",
-    "typescript": "6.0.3"
+    "typescript": "7.0.2"
   },
   "versionist": {
     "publishedAt": "2026-09-14T01:22:13.013Z"
