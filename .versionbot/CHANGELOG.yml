@@ -1,4 +1,17 @@
 - commits:
+    - subject: Update dependency @balena/lint to ^9.4.9
+      hash: f604b7a1ad704b1f07c9e4ae5bf1de14a51fabca
+      body: |
+        Update @balena/lint from 9.4.9 to 9.4.10
+      footer:
+        Change-type: patch
+        change-type: patch
+      author: balena-renovate[bot]
+      nested: []
+  version: 0.4.11
+  title: ""
+  date: 2026-09-20T01:21:51.037Z
+- commits:
     - subject: Update dependency @types/node to v24.13.5
       hash: b1d044224d09b4c326dc952832a3f764b596bd10
       body: |
