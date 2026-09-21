@@ -1,4 +1,17 @@
 - commits:
+    - subject: Lock file maintenance
+      hash: 3fc804ff9865c19dddf006289522ef59cfe46da8
+      body: |
+        Update 
+      footer:
+        Change-type: patch
+        change-type: patch
+      author: balena-renovate[bot]
+      nested: []
+  version: 0.4.12
+  title: ""
+  date: 2026-09-21T01:25:33.860Z
+- commits:
     - subject: Update dependency @balena/lint to ^9.4.9
       hash: f604b7a1ad704b1f07c9e4ae5bf1de14a51fabca
       body: |
