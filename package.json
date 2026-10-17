@@ -1,6 +1,6 @@
 {
   "name": "flowzonify",
-  "version": "0.4.20",
+  "version": "0.4.21",
   "description": "A CLI utility to migrate flowzone caller workflows",
   "type": "module",
   "bin": {
@@ -48,6 +48,6 @@
     "typescript": "6.0.3"
   },
   "versionist": {
-    "publishedAt": "2026-10-17T01:13:37.398Z"
+    "publishedAt": "2026-10-17T07:41:19.898Z"
   }
 }
